@@ -10,22 +10,23 @@
 		`The quick brown fox jumps over the lazy dog. This is a common pangram. It contains every letter of the alphabet. You can use it to test typefaces or keyboards. What a fun sentence!`
 	);
 
-	const dispatch = createEventDispatcher();
+	const dispatch = createEventDispatcher<{
+		practiceStarted: void; // To notify parent that practice mode is being initiated
+	}>();
 
 	function handleStartPractice() {
 		if (paragraph.trim()) {
-			startPractice(paragraph);
-			// Dispatch event if practice mode was successfully entered
-			if ($practiceStore.isPracticeMode) {
-				dispatch('practiceStarted');
-			}
+			startPractice(paragraph); // This will set $practiceStore.isPracticeMode = true
+			// The parent (+page.svelte) will react to $practiceStore.isPracticeMode
+			// and initialize Whisper if needed.
+			dispatch('practiceStarted');
 		}
 	}
 </script>
 
-<div class="grid w-full gap-2 p-4 max-w-2xl mx-auto">
-	<h2 class="text-2xl font-bold mb-4 text-center">FluentThroughSpeech</h2>
-	<p class="text-center text-muted-foreground mb-6">
+<div class="mx-auto grid w-full max-w-2xl gap-2 p-4">
+	<h2 class="mb-4 text-center text-2xl font-bold">FluentThroughSpeech</h2>
+	<p class="text-muted-foreground mb-6 text-center">
 		Paste or type a paragraph to start your speech practice.
 	</p>
 	<Label for="paragraphInput">Your Paragraph</Label>
@@ -37,11 +38,7 @@
 		class="resize-y"
 		disabled={$practiceStore.isPracticeMode}
 	/>
-	<Button
-		onclick={handleStartPractice}
-		class="mt-4"
-		disabled={$practiceStore.isPracticeMode}
-	>
+	<Button onclick={handleStartPractice} class="mt-4" disabled={$practiceStore.isPracticeMode}>
 		Start Practice
 	</Button>
 </div>
