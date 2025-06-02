@@ -6,19 +6,8 @@
 		DEFAULT_MODEL_PATH,
 		DEFAULT_MODEL_NAME
 	} from '$lib/constants';
-	import {
-		cardClasses,
-		cardHeaderClasses,
-		cardTitleClasses,
-		cardDescriptionClasses,
-		cardContentClasses,
-		outlineButtonClasses,
-		inputClasses,
-		labelClasses,
-		svelteProgressClasses
-	} from '$lib/uiClasses';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle'; // For a nicer spinner
 
-	// Corrected: Use $props() for defining component properties in runes mode
 	let {
 		whisperModule,
 		isWasmReady,
@@ -31,7 +20,6 @@
 		initialModelStatus?: string;
 	} = $props();
 
-	// Internal state
 	let isLoadingModel = $state(false);
 	let modelLoadProgress = $state(0);
 	let currentSelectedModelName = $state('');
@@ -47,7 +35,6 @@
 		statusUpdate: string;
 	}>();
 
-	// Update internalModelStatus based on reactive states
 	$effect(() => {
 		if (isLoadingModel) {
 			internalModelStatus = `Loading: ${currentSelectedModelName} - ${modelLoadProgress}%`;
@@ -59,13 +46,11 @@
 			internalModelStatus =
 				'Whisper WASM Runtime not ready. Click "Start Practice" on main page to initialize.';
 		} else {
-			// WASM is ready, but no model loaded yet by this component
 			internalModelStatus = initialModelStatus;
 		}
 		dispatch('statusUpdate', internalModelStatus);
 	});
 
-	// Effect to attempt auto-loading default model once WASM is ready
 	$effect(() => {
 		if (
 			isWasmReady &&
@@ -87,13 +72,11 @@
 			log('WASM not ready for auto model load.', 'warn');
 			return;
 		}
-
 		isLoadingModel = true;
 		currentSelectedModelName = DEFAULT_MODEL_NAME;
 		modelLoadProgress = 0;
 		log(`Attempting to auto-load model: ${DEFAULT_MODEL_PATH}`);
 		dispatch('notify', { type: 'info', message: `Auto-loading ${DEFAULT_MODEL_NAME}...` });
-
 		try {
 			const response = await fetch(DEFAULT_MODEL_PATH);
 			if (!response.ok) {
@@ -103,9 +86,7 @@
 			const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
 			let loadedSize = 0;
 			const reader = response.body?.getReader();
-			if (!reader) {
-				throw new Error('Failed to get reader for model response body.');
-			}
+			if (!reader) throw new Error('Failed to get reader for model response body.');
 			const chunks: Uint8Array[] = [];
 			while (true) {
 				const { done, value } = await reader.read();
@@ -113,9 +94,7 @@
 				if (value) {
 					chunks.push(value);
 					loadedSize += value.length;
-					if (totalSize > 0) {
-						modelLoadProgress = Math.round((loadedSize / totalSize) * 100);
-					}
+					if (totalSize > 0) modelLoadProgress = Math.round((loadedSize / totalSize) * 100);
 				}
 			}
 			const modelDataArray = new Uint8Array(loadedSize);
@@ -124,14 +103,11 @@
 				modelDataArray.set(chunk, offset);
 				offset += chunk.length;
 			}
-			log(
-				`${DEFAULT_MODEL_NAME} fetched. Size: ${modelDataArray.length} bytes. Storing in WASM FS...`
-			);
-
+			log(`${DEFAULT_MODEL_NAME} fetched. Storing in WASM FS...`);
 			try {
 				whisperModule.FS_unlink(MODEL_FILENAME_IN_FS);
 			} catch (e) {
-				/* Ignore if file doesn't exist */
+				/* Ignore */
 			}
 			whisperModule.FS_createDataFile('/', MODEL_FILENAME_IN_FS, modelDataArray, true, true, true);
 			log(`${DEFAULT_MODEL_NAME} stored as ${MODEL_FILENAME_IN_FS} in WASM FS.`);
@@ -145,7 +121,7 @@
 
 	async function fetchAndStoreModel(modelKey: keyof typeof models) {
 		if (!isWasmReady || !(window as any).loadRemote) {
-			log('WASM not ready or loadRemote not available. Cannot fetch model.', 'error');
+			log('WASM not ready or loadRemote not available.', 'error');
 			dispatch('notify', { type: 'error', message: 'WASM not ready or loadRemote not available.' });
 			return;
 		}
@@ -154,16 +130,12 @@
 		currentSelectedModelName = modelKey;
 		log(`Fetching model: ${modelKey}`);
 		dispatch('notify', { type: 'info', message: `Fetching ${modelKey}...` });
-
 		const modelInfo = models[modelKey];
 		const url = modelInfo.url;
 		const size_mb = modelInfo.size;
-
-		const cbProgress = (p: number) => {
-			modelLoadProgress = Math.round(p * 100);
-		};
+		const cbProgress = (p: number) => (modelLoadProgress = Math.round(p * 100));
 		const cbReady = (_fname_dst: string, data: Uint8Array) => {
-			log(`Model ${modelKey} downloaded. Size: ${data.length} bytes. Storing in WASM FS...`);
+			log(`Model ${modelKey} downloaded. Storing in WASM FS...`);
 			try {
 				whisperModule.FS_unlink(MODEL_FILENAME_IN_FS);
 			} catch (e) {
@@ -192,7 +164,6 @@
 		const target = event.target as HTMLInputElement;
 		const file = target.files?.[0];
 		if (!file) return;
-
 		if (!isWasmReady || !whisperModule) {
 			log('WASM not ready. Cannot load model file.', 'error');
 			dispatch('notify', { type: 'error', message: 'WASM not ready.' });
@@ -201,9 +172,8 @@
 		isLoadingModel = true;
 		modelLoadProgress = 0;
 		currentSelectedModelName = file.name;
-		log(`Loading model from file: ${file.name}, size: ${file.size} bytes`);
+		log(`Loading model from file: ${file.name}`);
 		dispatch('notify', { type: 'info', message: `Loading ${file.name}...` });
-
 		const reader = new FileReader();
 		reader.onload = (e) => {
 			const buffer = e.target?.result as ArrayBuffer;
@@ -225,9 +195,8 @@
 			}
 		};
 		reader.onprogress = (e_progress) => {
-			if (e_progress.lengthComputable) {
+			if (e_progress.lengthComputable)
 				modelLoadProgress = Math.round((e_progress.loaded / e_progress.total) * 100);
-			}
 		};
 		reader.readAsArrayBuffer(file);
 	}
@@ -238,24 +207,20 @@
 			isLoadingModel = false;
 			return;
 		}
-		log(
-			`Initializing Whisper context with model in FS: ${MODEL_FILENAME_IN_FS} (originally ${modelName})`
-		);
-
+		log(`Initializing Whisper context with model: ${modelName}`);
 		try {
 			if (internalWhisperContextId !== null) {
 				whisperModule.free(internalWhisperContextId);
-				log(`Freed previous context from ModelLoader: ${internalWhisperContextId}`);
+				log(`Freed previous context: ${internalWhisperContextId}`);
 				internalWhisperContextId = null;
 			}
-
 			const ctxId = whisperModule.init(MODEL_FILENAME_IN_FS);
 			if (ctxId && ctxId > 0) {
 				internalWhisperContextId = ctxId;
 				internalIsModelLoaded = true;
 				isLoadingModel = false;
 				currentSelectedModelName = modelName;
-				log(`Whisper context initialized successfully. Context ID: ${ctxId}`);
+				log(`Whisper context initialized. Context ID: ${ctxId}`);
 				dispatch('notify', { type: 'success', message: `Model "${modelName}" loaded!` });
 				dispatch('modelInitialized', { contextId: ctxId, modelName: modelName });
 			} else {
@@ -274,9 +239,9 @@
 		if (whisperModule && internalWhisperContextId !== null) {
 			try {
 				whisperModule.free(internalWhisperContextId);
-				log(`Freed context ${internalWhisperContextId} from ModelLoader before change request.`);
+				log(`Freed context ${internalWhisperContextId} before change.`);
 			} catch (e: any) {
-				log(`Error freeing context in ModelLoader: ${e.message}`, 'error');
+				log(`Error freeing context: ${e.message}`, 'error');
 			}
 			internalWhisperContextId = null;
 		}
@@ -287,33 +252,38 @@
 	}
 </script>
 
-<div class={cardClasses}>
-	<div class={cardHeaderClasses}>
-		<h2 class={cardTitleClasses}>Whisper Model Control</h2>
-		<p class="{cardDescriptionClasses} mt-1">{internalModelStatus}</p>
+<div class="rounded-lg border border-slate-700 bg-slate-800 text-slate-100 shadow-md">
+	<div class="p-6">
+		<h2 class="text-xl font-semibold tracking-tight text-slate-100">Whisper Model Control</h2>
+		<p class="mt-1 text-sm text-slate-400">{internalModelStatus}</p>
 	</div>
-	<div class={cardContentClasses}>
+	<div class="space-y-4 p-6 pt-0">
 		{#if isWasmLoading}
-			<div class="flex items-center space-x-2">
-				<div
-					class="border-primary h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"
-				></div>
+			<div class="flex items-center space-x-2 text-slate-300">
+				<LoaderCircleIcon class="h-5 w-5 animate-spin text-purple-400" />
 				<span>Loading WASM runtime... Please wait.</span>
 			</div>
 		{:else if !isWasmReady}
-			<p class="text-red-500">
+			<p class="text-rose-400">
 				WASM Runtime not ready. Click "Start Practice" on the main page to initialize.
 			</p>
 		{:else if isLoadingModel}
-			<progress value={modelLoadProgress} max="100" class="{svelteProgressClasses} w-full"
-			></progress>
-			<p>Loading: {currentSelectedModelName} - {modelLoadProgress}%</p>
+			<div>
+				<progress
+					value={modelLoadProgress}
+					max="100"
+					class="w-full [&::-webkit-progress-bar]:rounded-lg [&::-webkit-progress-bar]:bg-slate-700 [&::-webkit-progress-value]:rounded-lg [&::-webkit-progress-value]:bg-purple-500"
+				></progress>
+				<p class="mt-1 text-sm text-slate-300">
+					Loading: {currentSelectedModelName} - {modelLoadProgress}%
+				</p>
+			</div>
 		{:else if !internalIsModelLoaded}
-			<p>Select a model to load:</p>
+			<p class="text-slate-300">Select a model to load:</p>
 			<div class="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
 				{#each Object.entries(models) as [key, model]}
 					<button
-						class={outlineButtonClasses}
+						class="rounded-md border border-slate-600 bg-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-purple-500/30 hover:text-purple-200 focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
 						onclick={() => fetchAndStoreModel(key as keyof typeof models)}
 						disabled={isLoadingModel || !isWasmReady}
 					>
@@ -322,22 +292,27 @@
 				{/each}
 			</div>
 			<div class="mt-4">
-				<label for="model-file-upload" class={labelClasses}>Or upload a .bin model file:</label>
+				<label for="model-file-upload" class="text-sm font-medium text-slate-300"
+					>Or upload a .bin model file:</label
+				>
 				<input
 					type="file"
 					id="model-file-upload"
 					accept=".bin"
-					class="{inputClasses} mt-1"
+					class="mt-1 flex h-10 w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-slate-100 ring-offset-slate-900 file:border-0 file:bg-slate-600 file:text-sm file:font-medium file:text-purple-300 placeholder:text-slate-400 hover:file:bg-purple-500/20 focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
 					onchange={handleModelFileSelect}
 					disabled={isLoadingModel || !isWasmReady}
 				/>
 			</div>
 		{:else}
 			<!-- internalIsModelLoaded is true -->
-			<p class="text-green-600">
+			<p class="text-emerald-400">
 				Model "{currentSelectedModelName}" is loaded! Context ID: {internalWhisperContextId}
 			</p>
-			<button class="{outlineButtonClasses} mt-2" onclick={handleChangeModelClick}>
+			<button
+				class="mt-2 rounded-md border border-slate-600 bg-violet-500 px-4 py-2 text-sm font-medium text-slate-100 transition-colors hover:bg-violet-400 focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+				onclick={handleChangeModelClick}
+			>
 				Change Model
 			</button>
 		{/if}

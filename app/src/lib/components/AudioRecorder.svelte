@@ -1,3 +1,4 @@
+<!-- src/lib/components/AudioRecorder.svelte -->
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { Progress } from '$lib/components/ui/progress';
@@ -10,7 +11,7 @@
 	let {
 		maxRecordingSeconds,
 		targetSampleRate,
-		disabled = false
+		disabled = false // External disabled state
 	}: {
 		maxRecordingSeconds: number;
 		targetSampleRate: number;
@@ -41,9 +42,11 @@
 	let recordStartTime = 0;
 	let recordInterval: any = null;
 
-	// Internal derived signals
 	const _derivedIsRecording = $derived(actualIsRecording);
 	const _derivedIsProcessing = $derived(isProcessingAudio);
+
+	// Combined disabled state for the button
+	let isButtonDisabled = $derived(disabled || (!actualIsRecording && isProcessingAudio));
 
 	function log(text: string, type: 'info' | 'error' | 'warn' = 'info') {
 		console[type](`[AudioRecorder] ${text}`);
@@ -61,7 +64,6 @@
 		return audioContext;
 	}
 
-	// --- Component API ---
 	export function start() {
 		if (actualIsRecording || isProcessingAudio) {
 			log('Already recording or processing.', 'warn');
@@ -254,12 +256,13 @@
 		if (mediaRecorder && actualIsRecording) {
 			log('Stopping MediaRecorder.', 'info');
 			mediaRecorder.stop();
-			toast.info('Recording stopped. Processing...');
+			// toast.info('Recording stopped. Processing...'); // Moved to onstop for accuracy
 		} else {
 			log('Stop called but not actively recording or no mediaRecorder.', 'warn');
-			actualIsRecording = false;
+			actualIsRecording = false; // Ensure state is reset if stop is called unexpectedly
 			isProcessingAudio = false;
 			recordProgress = 0;
+			currentStatusMessage = 'Idle';
 			dispatch('status', {
 				message: 'Idle',
 				type: 'idle',
@@ -270,7 +273,6 @@
 		}
 	}
 
-	// Export functions that return the derived values
 	export function isRecording(): boolean {
 		return _derivedIsRecording;
 	}
@@ -278,11 +280,9 @@
 	export function isProcessing(): boolean {
 		return _derivedIsProcessing;
 	}
-	// --- End Component API ---
 
 	function handleClick() {
 		if (actualIsRecording) {
-			// Use internal state for button logic
 			stop();
 		} else {
 			start();
@@ -302,14 +302,29 @@
 			audioContext.close().catch((e) => log(`Error closing AudioContext: ${e.message}`, 'error'));
 		}
 	});
+
+	let buttonClass = $derived('');
+	$effect(() => {
+		if (isButtonDisabled) {
+			buttonClass = 'bg-slate-700 text-slate-500 opacity-60 cursor-not-allowed';
+		} else if (actualIsRecording) {
+			buttonClass =
+				'bg-rose-500 text-slate-100 hover:bg-rose-600 active:bg-rose-700 focus-visible:ring-rose-500';
+		} else if (isProcessingAudio) {
+			buttonClass = 'bg-blue-500 text-slate-100 cursor-wait';
+		} else {
+			buttonClass =
+				'bg-slate-700 text-slate-100 border border-slate-600 hover:bg-purple-500/40 hover:text-purple-100 focus-visible:ring-purple-500';
+		}
+	});
 </script>
 
 <div class="flex w-full flex-col items-center">
 	<Button
 		onclick={handleClick}
 		size="lg"
-		variant={actualIsRecording ? 'destructive' : 'outline'}
-		disabled={disabled || (!actualIsRecording && isProcessingAudio)}
+		class="{buttonClass} focus-visible:ring-offset-slate-900"
+		disabled={isButtonDisabled}
 		title={disabled
 			? 'Recorder disabled by parent'
 			: actualIsRecording
@@ -319,25 +334,27 @@
 					: 'Start Recording'}
 	>
 		{#if actualIsRecording}
-			<StopCircleIcon class="mr-2 h-5 w-5" />
+			<StopCircleIcon class="mr-2 h-5 w-5 text-slate-100" />
 			Stop
 		{:else if isProcessingAudio}
-			<LoaderCircleIcon class="mr-2 h-5 w-5 animate-spin" />
+			<LoaderCircleIcon class="mr-2 h-5 w-5 animate-spin text-slate-100" />
 			Processing
 		{:else}
-			<MicIcon class="mr-2 h-5 w-5" />
+			<MicIcon class="mr-2 h-5 w-5 text-purple-300" />
 			Record
 		{/if}
 	</Button>
 	{#if actualIsRecording || (isProcessingAudio && recordProgress > 0)}
 		<div class="mt-3 w-full max-w-xs">
-			<Progress value={recordProgress} class="w-full" />
+			<Progress
+				value={recordProgress}
+				class="w-full [&::-moz-progress-bar]:bg-purple-500 [&::-webkit-progress-bar]:bg-slate-700 [&::-webkit-progress-value]:bg-purple-500"
+			/>
 			{#if currentStatusMessage}
-				<p class="text-muted-foreground mt-1 text-center text-sm">
+				<p class="mt-1 text-center text-sm text-slate-400">
 					{currentStatusMessage}
 				</p>
 			{/if}
 		</div>
 	{/if}
 </div>
-    

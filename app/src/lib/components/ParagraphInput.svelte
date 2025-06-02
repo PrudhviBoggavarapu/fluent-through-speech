@@ -6,39 +6,57 @@
 	import practiceStore, { startPractice } from '$lib/stores/practiceStore';
 	import { createEventDispatcher } from 'svelte';
 
-	let paragraph = $state(
-		`The quick brown fox jumps over the lazy dog. This is a common pangram. It contains every letter of the alphabet. You can use it to test typefaces or keyboards. What a fun sentence!`
-	);
+	let { initialParagraph = 'Error: Story content not loaded.' }: { initialParagraph?: string } =
+		$props();
+
+	let paragraph = $state(initialParagraph);
 
 	const dispatch = createEventDispatcher<{
-		practiceStarted: void; // To notify parent that practice mode is being initiated
+		practiceStarted: void;
 	}>();
 
+	$effect(() => {
+		// console.log(
+		// 	'[ParagraphInput $effect] Triggered. Practice Mode:', $practiceStore.isPracticeMode,
+		// 	'Prop initialParagraph:', initialParagraph?.substring(0,30) + "...",
+		// 	'Internal paragraph:', paragraph?.substring(0,30) + "..."
+		// );
+		if (!$practiceStore.isPracticeMode) {
+			if (paragraph !== initialParagraph) {
+				// console.log(
+				// 	`[ParagraphInput $effect] Updating internal paragraph to: "${initialParagraph?.substring(0,30)}..."`
+				// );
+				paragraph = initialParagraph;
+			}
+		}
+	});
+
 	function handleStartPractice() {
-		if (paragraph.trim()) {
-			startPractice(paragraph); // This will set $practiceStore.isPracticeMode = true
-			// The parent (+page.svelte) will react to $practiceStore.isPracticeMode
-			// and initialize Whisper if needed.
+		if (paragraph && paragraph.trim()) {
+			startPractice(paragraph);
 			dispatch('practiceStarted');
+		} else {
+			console.warn('ParagraphInput: Cannot start practice with empty text.');
 		}
 	}
 </script>
 
-<div class="mx-auto grid w-full max-w-2xl gap-2 p-4">
-	<h2 class="mb-4 text-center text-2xl font-bold">FluentThroughSpeech</h2>
-	<p class="text-muted-foreground mb-6 text-center">
-		Paste or type a paragraph to start your speech practice.
-	</p>
-	<Label for="paragraphInput">Your Paragraph</Label>
+<div class="mx-auto grid w-full max-w-2xl gap-2">
+	<Label for="paragraphInput" class="text-lg font-medium text-slate-300">Your Practice Text</Label>
 	<Textarea
 		id="paragraphInput"
 		bind:value={paragraph}
-		placeholder="Type or paste your paragraph here..."
+		placeholder="Select a story or paste your paragraph here..."
 		rows={8}
-		class="resize-y"
+		class="resize-y border-slate-600 bg-slate-700 text-base text-slate-100 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-slate-900"
 		disabled={$practiceStore.isPracticeMode}
 	/>
-	<Button onclick={handleStartPractice} class="mt-4" disabled={$practiceStore.isPracticeMode}>
+	<Button
+		onclick={handleStartPractice}
+		class="mt-4 w-full bg-purple-500 py-3 text-lg text-slate-100 hover:bg-purple-400 active:bg-purple-600 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+		disabled={$practiceStore.isPracticeMode || !paragraph || !paragraph.trim()}
+		size="lg"
+	>
 		Start Practice
 	</Button>
 </div>
