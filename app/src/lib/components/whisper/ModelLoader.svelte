@@ -3,21 +3,24 @@
 	import {
 		models,
 		MODEL_FILENAME_IN_FS,
-		DEFAULT_MODEL_PATH,
-		DEFAULT_MODEL_NAME
+		DEFAULT_MODEL_PATH, // Primary default model
+		DEFAULT_MODEL_NAME // Primary default model name
+		// DEFAULT_MODEL_PATH_EN and DEFAULT_MODEL_NAME_EN are no longer used for auto-load decision
 	} from '$lib/constants';
-	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle'; // For a nicer spinner
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
 	let {
 		whisperModule,
 		isWasmReady,
 		isWasmLoading,
-		initialModelStatus = 'No model loaded.'
+		initialModelStatus = 'No model loaded. Please select an option below.',
+		preferredLanguage = '' // This prop is kept for potential future use or clarity but won't change auto-load target
 	}: {
 		whisperModule: any;
 		isWasmReady: boolean;
 		isWasmLoading: boolean;
 		initialModelStatus?: string;
+		preferredLanguage?: string; // Kept for consistency, but auto-load always picks multilingual
 	} = $props();
 
 	let isLoadingModel = $state(false);
@@ -46,20 +49,15 @@
 			internalModelStatus =
 				'Whisper WASM Runtime not ready. Click "Start Practice" on main page to initialize.';
 		} else {
-			internalModelStatus = initialModelStatus;
+			internalModelStatus = 'WASM Ready. Attempting to load default multilingual model...';
 		}
 		dispatch('statusUpdate', internalModelStatus);
 	});
 
 	$effect(() => {
-		if (
-			isWasmReady &&
-			whisperModule &&
-			!internalIsModelLoaded &&
-			!isLoadingModel &&
-			!currentSelectedModelName
-		) {
-			autoLoadDefaultModel();
+		if (isWasmReady && whisperModule && !internalIsModelLoaded && !isLoadingModel) {
+			log('WASM ready and no model loaded/loading. Initiating automatic model load.');
+			initiateAutomaticModelLoad();
 		}
 	});
 
@@ -67,62 +65,89 @@
 		dispatch('log', { text, type });
 	}
 
-	async function autoLoadDefaultModel() {
-		if (!isWasmReady || !whisperModule) {
-			log('WASM not ready for auto model load.', 'warn');
+	async function initiateAutomaticModelLoad() {
+		if (!isWasmReady || !whisperModule || isLoadingModel || internalIsModelLoaded) {
+			if (internalIsModelLoaded) {
+				log('Model already loaded, skipping automatic load.', 'info');
+			} else {
+				log(
+					'Conditions not met for automatic model load (WASM not ready, already loading, or module missing).',
+					'warn'
+				);
+			}
 			return;
 		}
 		isLoadingModel = true;
-		currentSelectedModelName = DEFAULT_MODEL_NAME;
 		modelLoadProgress = 0;
-		log(`Attempting to auto-load model: ${DEFAULT_MODEL_PATH}`);
-		dispatch('notify', { type: 'info', message: `Auto-loading ${DEFAULT_MODEL_NAME}...` });
+
+		const modelPathToLoad = DEFAULT_MODEL_PATH;
+		const modelNameToLoad = DEFAULT_MODEL_NAME;
+		const modelLogName = `Default multilingual model (${DEFAULT_MODEL_NAME})`;
+
+		currentSelectedModelName = modelNameToLoad; // Update UI to show which model is being attempted
+
+		log(`Attempting to auto-load: ${modelLogName} from ${modelPathToLoad}`);
+		dispatch('notify', { type: 'info', message: `Loading ${modelLogName}...` });
+
 		try {
-			const response = await fetch(DEFAULT_MODEL_PATH);
+			const response = await fetch(modelPathToLoad);
 			if (!response.ok) {
-				throw new Error(`Failed to fetch ${DEFAULT_MODEL_PATH}: ${response.statusText}`);
+				throw new Error(`Failed to fetch ${modelPathToLoad}: ${response.statusText}`);
 			}
-			const contentLength = response.headers.get('content-length');
-			const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
-			let loadedSize = 0;
-			const reader = response.body?.getReader();
-			if (!reader) throw new Error('Failed to get reader for model response body.');
-			const chunks: Uint8Array[] = [];
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-				if (value) {
-					chunks.push(value);
-					loadedSize += value.length;
-					if (totalSize > 0) modelLoadProgress = Math.round((loadedSize / totalSize) * 100);
-				}
-			}
-			const modelDataArray = new Uint8Array(loadedSize);
-			let offset = 0;
-			for (const chunk of chunks) {
-				modelDataArray.set(chunk, offset);
-				offset += chunk.length;
-			}
-			log(`${DEFAULT_MODEL_NAME} fetched. Storing in WASM FS...`);
-			try {
-				whisperModule.FS_unlink(MODEL_FILENAME_IN_FS);
-			} catch (e) {
-				/* Ignore */
-			}
-			whisperModule.FS_createDataFile('/', MODEL_FILENAME_IN_FS, modelDataArray, true, true, true);
-			log(`${DEFAULT_MODEL_NAME} stored as ${MODEL_FILENAME_IN_FS} in WASM FS.`);
-			initializeWhisperContext(DEFAULT_MODEL_NAME);
+			await processModelResponse(response, modelNameToLoad);
 		} catch (error: any) {
-			log(`Error auto-loading ${DEFAULT_MODEL_NAME}: ${error.message}`, 'error');
+			log(`Error auto-loading ${modelLogName}: ${error.message}`, 'error');
 			isLoadingModel = false;
+			currentSelectedModelName = ''; // Reset on failure
 			dispatch('notify', { type: 'error', message: `Failed to auto-load model: ${error.message}` });
+			internalModelStatus =
+				'Failed to load default model automatically. Please try a manual option.';
 		}
 	}
 
+	async function processModelResponse(response: Response, modelNameForInit: string) {
+		const contentLength = response.headers.get('content-length');
+		const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
+		let loadedSize = 0;
+		const reader = response.body?.getReader();
+		if (!reader) throw new Error('Failed to get reader for model response body.');
+
+		const chunks: Uint8Array[] = [];
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			if (value) {
+				chunks.push(value);
+				loadedSize += value.length;
+				if (totalSize > 0) modelLoadProgress = Math.round((loadedSize / totalSize) * 100);
+			}
+		}
+		const modelDataArray = new Uint8Array(loadedSize);
+		let offset = 0;
+		for (const chunk of chunks) {
+			modelDataArray.set(chunk, offset);
+			offset += chunk.length;
+		}
+		log(`${modelNameForInit} fetched. Storing in WASM FS...`);
+		try {
+			whisperModule.FS_unlink(MODEL_FILENAME_IN_FS);
+		} catch (e) {
+			/* Ignore */
+		}
+		whisperModule.FS_createDataFile('/', MODEL_FILENAME_IN_FS, modelDataArray, true, true, true);
+		log(`${modelNameForInit} stored as ${MODEL_FILENAME_IN_FS} in WASM FS.`);
+		initializeWhisperContext(modelNameForInit);
+	}
+
 	async function fetchAndStoreModel(modelKey: keyof typeof models) {
-		if (!isWasmReady || !(window as any).loadRemote) {
-			log('WASM not ready or loadRemote not available.', 'error');
-			dispatch('notify', { type: 'error', message: 'WASM not ready or loadRemote not available.' });
+		if (!isWasmReady || !(window as any).loadRemote || isLoadingModel) {
+			log('WASM not ready, loadRemote not available, or already loading.', 'error');
+			if (!isWasmReady || !(window as any).loadRemote) {
+				dispatch('notify', {
+					type: 'error',
+					message: 'WASM components not ready for manual load.'
+				});
+			}
 			return;
 		}
 		isLoadingModel = true;
@@ -148,6 +173,8 @@
 		const cbCancel = () => {
 			log(`Model download cancelled: ${modelKey}`, 'warn');
 			isLoadingModel = false;
+			currentSelectedModelName = '';
+			internalModelStatus = 'Model download cancelled. Please select an option.';
 		};
 		(window as any).loadRemote(
 			url,
@@ -164,9 +191,11 @@
 		const target = event.target as HTMLInputElement;
 		const file = target.files?.[0];
 		if (!file) return;
-		if (!isWasmReady || !whisperModule) {
-			log('WASM not ready. Cannot load model file.', 'error');
-			dispatch('notify', { type: 'error', message: 'WASM not ready.' });
+		if (!isWasmReady || !whisperModule || isLoadingModel) {
+			log('WASM not ready or already loading. Cannot load model file.', 'error');
+			if (!isWasmReady || !whisperModule) {
+				dispatch('notify', { type: 'error', message: 'WASM components not ready.' });
+			}
 			return;
 		}
 		isLoadingModel = true;
@@ -191,7 +220,9 @@
 			} else {
 				log('Failed to read model file.', 'error');
 				isLoadingModel = false;
+				currentSelectedModelName = '';
 				dispatch('notify', { type: 'error', message: 'Error reading model file.' });
+				internalModelStatus = 'Error reading model file. Please try again.';
 			}
 		};
 		reader.onprogress = (e_progress) => {
@@ -201,13 +232,15 @@
 		reader.readAsArrayBuffer(file);
 	}
 
-	function initializeWhisperContext(modelName: string) {
+	function initializeWhisperContext(modelNameUsedForInit: string) {
 		if (!whisperModule) {
 			log('Whisper module not available for context initialization.', 'error');
 			isLoadingModel = false;
+			internalModelStatus = 'Error: Whisper module not found.';
 			return;
 		}
-		log(`Initializing Whisper context with model: ${modelName}`);
+		log(`Initializing Whisper context with model: ${modelNameUsedForInit}`);
+		// currentSelectedModelName should already be set to modelNameUsedForInit by the calling function
 		try {
 			if (internalWhisperContextId !== null) {
 				whisperModule.free(internalWhisperContextId);
@@ -219,10 +252,12 @@
 				internalWhisperContextId = ctxId;
 				internalIsModelLoaded = true;
 				isLoadingModel = false;
-				currentSelectedModelName = modelName;
 				log(`Whisper context initialized. Context ID: ${ctxId}`);
-				dispatch('notify', { type: 'success', message: `Model "${modelName}" loaded!` });
-				dispatch('modelInitialized', { contextId: ctxId, modelName: modelName });
+				dispatch('notify', {
+					type: 'success',
+					message: `Model "${currentSelectedModelName}" loaded!`
+				});
+				dispatch('modelInitialized', { contextId: ctxId, modelName: currentSelectedModelName });
 			} else {
 				throw new Error(`Initialization returned invalid context ID: ${ctxId}`);
 			}
@@ -231,7 +266,9 @@
 			console.error('Whisper init error:', e);
 			internalIsModelLoaded = false;
 			isLoadingModel = false;
+			currentSelectedModelName = '';
 			dispatch('notify', { type: 'error', message: `Failed to initialize model: ${e.message}` });
+			internalModelStatus = `Failed to initialize model: ${e.message.split('(')[0]}`;
 		}
 	}
 
@@ -248,6 +285,7 @@
 		internalIsModelLoaded = false;
 		isLoadingModel = false;
 		currentSelectedModelName = '';
+		internalModelStatus = 'Model unloaded. Please select an option.';
 		dispatch('modelUnloaded');
 	}
 </script>
@@ -279,7 +317,10 @@
 				</p>
 			</div>
 		{:else if !internalIsModelLoaded}
-			<p class="text-slate-300">Select a model to load:</p>
+			<!-- Manual loading options are shown if auto-load failed or user wants to change -->
+			<p class="text-center text-sm text-slate-400">
+				Attempted automatic model load. If it failed or you want a different model, choose below:
+			</p>
 			<div class="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
 				{#each Object.entries(models) as [key, model]}
 					<button
