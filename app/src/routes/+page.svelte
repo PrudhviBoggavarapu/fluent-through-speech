@@ -1,4 +1,3 @@
-<!-- src/routes/+page.svelte -->
 <script lang="ts" module>
 	// "schema": our internal JSON of stories
 	export const stories = [
@@ -264,45 +263,34 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { Toaster, toast } from 'svelte-sonner';
-	import practiceStore, { resetPractice } from '$lib/stores/practiceStore';
-	import ParagraphInput from '$lib/components/ParagraphInput.svelte';
-	import PracticeDisplay from '$lib/components/PracticeDisplay.svelte';
-	import ModelLoader from '$lib/components/whisper/ModelLoader.svelte';
-	import LogViewer from '$lib/components/whisper/LogViewer.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import {
-		Card,
-		CardContent,
-		CardHeader,
-		CardTitle,
-		CardDescription
-	} from '$lib/components/ui/card';
-	import { ScrollArea } from '$lib/components/ui/scroll-area';
-
-	import MenuIcon from '@lucide/svelte/icons/menu';
-	import UserCircleIcon from '@lucide/svelte/icons/user-circle-2';
-	import SettingsIcon from '@lucide/svelte/icons/settings';
-	import BookOpenTextIcon from '@lucide/svelte/icons/book-open-text';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import BugIcon from '@lucide/svelte/icons/bug';
+	import practiceStore, { startPractice, resetPractice } from '$lib/stores/practiceStore';
 	import { languages as languageOptionsConstant } from '$lib/constants';
-	import { labelClasses, selectClasses as regularSelectClasses } from '$lib/uiClasses';
 
-	let {
-		stories: availableStories = stories,
-		initialId = stories[0].id
-	}: { stories?: readonly Story[]; initialId?: string } = $props();
+	import AppHeader from '$lib/components/layout/AppHeader.svelte';
+	import AppSidebar from '$lib/components/layout/AppSidebar.svelte';
+	import AppFooter from '$lib/components/layout/AppFooter.svelte';
+	import StorySelectorView from '$lib/components/page/StorySelectorView.svelte';
+	import PracticeModeView from '$lib/components/page/PracticeModeView.svelte';
+	import DebugSection from '$lib/components/page/DebugSection.svelte';
 
+	type $$Props = {
+		initialAvailableStories?: readonly Story[];
+		initialId?: string;
+	};
+
+	// Use the stories from the module script as the default
+	let { initialAvailableStories = stories, initialId = stories[0].id }: $$Props = $props();
+
+	let availableStories = $state(initialAvailableStories);
 	let selectedStoryId = $state<string>(initialId);
 	let selectedGlobalLanguage = $state<string>('en');
 	let showDebugInfo = $state(false);
+	let showSidebar = $state(true);
 
 	let selectedStory: Story = $derived.by(() => {
-		const found = availableStories.find((s) => s.id === selectedStoryId);
+		const found = availableStories.find((s: Story) => s.id === selectedStoryId);
 		return found || availableStories[0];
 	});
-
-	let showSidebar = $state(true);
 
 	let logOutput = $state('Welcome to FluentThroughSpeech with Whisper!\n');
 	let appModelStatus = $state('Whisper not initialized. Start practice to load model.');
@@ -456,7 +444,11 @@
 		appModelStatus = event.detail;
 	}
 
-	function handleParagraphInputPracticeStarted() {}
+	function handleParagraphInputPracticeStarted() {
+		if (!isWasmReady && !isWasmLoading) {
+			initializeWhisperSystems();
+		}
+	}
 
 	onDestroy(() => {
 		if (whisperModule && whisperContextId) {
@@ -473,8 +465,10 @@
 		Math.max(1, Math.floor((navigator.hardwareConcurrency || 4) / 2))
 	);
 
-	function toggleDebugInfo() {
-		showDebugInfo = !showDebugInfo;
+	function handleToastNotify(
+		event: CustomEvent<{ type: 'success' | 'error' | 'info' | 'warning'; message: string }>
+	) {
+		toast[event.detail.type](event.detail.message);
 	}
 </script>
 
@@ -489,239 +483,52 @@
 <Toaster richColors position="top-right" />
 
 <div class="flex h-screen flex-col bg-slate-900 text-slate-100">
-	<nav
-		class="sticky top-0 z-50 flex h-16 items-center justify-between bg-slate-800/80 p-3 px-4 shadow-md backdrop-blur-md md:px-6"
-	>
-		<div class="flex items-center gap-2">
-			<Button
-				variant="ghost"
-				size="icon"
-				class="text-slate-100 hover:bg-slate-700 md:hidden"
-				onclick={() => (showSidebar = !showSidebar)}
-			>
-				<MenuIcon class="h-6 w-6" />
-			</Button>
-			<BookOpenTextIcon class="h-8 w-8 text-purple-400" />
-			<h1 class="text-xl font-semibold tracking-tight text-slate-100">FluentThroughSpeech</h1>
-		</div>
-		<div class="flex items-center gap-2">
-			<Button
-				variant="ghost"
-				size="icon"
-				title="User Profile (Coming Soon!)"
-				class="text-slate-300 hover:bg-slate-700 hover:text-slate-100"
-			>
-				<UserCircleIcon class="h-6 w-6" />
-			</Button>
-			<Button
-				variant="ghost"
-				size="icon"
-				title="Settings (Coming Soon!)"
-				class="text-slate-300 hover:bg-slate-700 hover:text-slate-100"
-			>
-				<SettingsIcon class="h-6 w-6" />
-			</Button>
-			<Button
-				variant="ghost"
-				size="icon"
-				title={showDebugInfo ? 'Hide Debug Info' : 'Show Debug Info'}
-				class="text-slate-300 hover:bg-slate-700 hover:text-slate-100 {showDebugInfo
-					? '!bg-purple-500/20 text-purple-400'
-					: ''}"
-				onclick={toggleDebugInfo}
-			>
-				<BugIcon class="h-6 w-6" />
-			</Button>
-		</div>
-	</nav>
+	<AppHeader bind:showSidebar bind:showDebugInfo />
 
 	<div class="flex flex-1 overflow-hidden">
-		{#if showSidebar}
-			<ScrollArea
-				class="fixed inset-y-0 left-0 z-40 w-64 transform 
-					   border-r border-slate-700 bg-slate-800/90 text-slate-300 shadow-lg transition-transform duration-300 ease-in-out 
-					   md:static md:h-[calc(100vh-4rem-3rem)] md:shrink-0 md:transform-none md:transition-none 
-					   {showSidebar ? 'translate-x-0' : '-translate-x-full'}"
-			>
-				<div
-					class="h-full p-4 {showSidebar && typeof window !== 'undefined' && window.innerWidth < 768
-						? 'pt-16' // For fixed mobile view, pad below nav
-						: 'md:pt-4'}"
-				>
-					<h2 class="mb-4 text-lg font-semibold tracking-tight text-slate-100">
-						Choose Your Passage
-					</h2>
-					<ul class="space-y-1">
-						{#each availableStories as story (story.id)}
-							<li>
-								<button
-									onclick={() => {
-										selectedStoryId = story.id;
-										if (window.innerWidth < 768) showSidebar = false;
-									}}
-									class="flex w-full items-center justify-between rounded-md p-2.5 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-none
-										{selectedStoryId === story.id
-										? 'bg-purple-500/20 font-medium text-purple-200'
-										: 'hover:bg-slate-700 hover:text-slate-100'}"
-								>
-									<div class="flex-1">
-										<p class="font-medium">{story.title}</p>
-										<p class="text-xs text-slate-400">
-											{story.category} - {story.difficulty}
-										</p>
-									</div>
-									{#if selectedStoryId === story.id}
-										<ChevronRightIcon class="h-5 w-5 text-purple-300" />
-									{/if}
-								</button>
-							</li>
-						{/each}
-					</ul>
-					<div class="mt-6 border-t border-slate-700 pt-4">
-						<p class="text-xs text-slate-400">
-							(Future: Filter by difficulty/category, search passages)
-						</p>
-					</div>
-				</div>
-			</ScrollArea>
-		{/if}
+		<AppSidebar stories={availableStories} bind:selectedStoryId bind:showSidebar />
 
 		<main class="flex-1 overflow-y-auto px-4 pt-16 pb-6 md:h-full">
 			{#if !$practiceStore.isPracticeMode}
-				<Card class="mx-auto w-full max-w-3xl bg-slate-800 text-slate-100 shadow-xl">
-					<CardHeader>
-						<CardTitle class="text-center text-3xl font-bold text-slate-100"
-							>{selectedStory.title}</CardTitle
-						>
-						<CardDescription class="text-center text-slate-400">
-							Category: {selectedStory.category} | Difficulty: {selectedStory.difficulty}
-						</CardDescription>
-					</CardHeader>
-					<CardContent class="mt-4">
-						<div class="mb-6">
-							<label
-								for="global-language-select"
-								class="{labelClasses} mb-2 block text-lg font-medium text-slate-300"
-							>
-								Select Language for Practice:
-							</label>
-							<select
-								id="global-language-select"
-								bind:value={selectedGlobalLanguage}
-								class="{regularSelectClasses} w-full border-slate-600 bg-slate-700 text-slate-100 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
-							>
-								{#each languageOptionsConstant as lang (lang.value)}
-									<option value={lang.value}>{lang.label}</option>
-								{/each}
-							</select>
-							<p class="mt-2 text-xs text-slate-400">
-								This language will be used for model loading and transcription.
-							</p>
-						</div>
-
-						{#if selectedStory && selectedStory.content}
-							<ParagraphInput
-								initialParagraph={selectedStory.content}
-								on:practiceStarted={handleParagraphInputPracticeStarted}
-							/>
-						{:else}
-							<div
-								class="flex min-h-[200px] items-center justify-center rounded-md border border-dashed border-slate-700 bg-slate-700/50 p-4"
-							>
-								<p class="text-slate-400">Select a story to begin.</p>
-							</div>
-						{/if}
-						<div class="mt-8 rounded-lg border border-dashed border-slate-700 p-4 text-center">
-							<p class="text-slate-400">
-								✨ Tip: Speak clearly and at a natural pace. (More tips coming soon!) ✨
-							</p>
-						</div>
-					</CardContent>
-				</Card>
+				<StorySelectorView
+					story={selectedStory}
+					bind:selectedLanguage={selectedGlobalLanguage}
+					languageOptions={languageOptionsConstant}
+					onPracticeStart={handleParagraphInputPracticeStarted}
+					isWhisperBusy={isWasmLoading || (isWasmReady && !isModelLoaded)}
+				/>
 			{:else}
-				<!-- Practice Mode UI -->
-				{#if !isModelLoaded && isWasmLoading}
-					<div class="flex h-full flex-col items-center justify-center p-8 text-center">
-						<div
-							class="loader mb-4 h-12 w-12 animate-spin rounded-full border-4 border-purple-500 border-t-transparent"
-						></div>
-						<p class="text-xl font-semibold text-slate-100">Initializing Whisper Audio Engine...</p>
-						<p class="text-slate-400">
-							This may take a moment. Please ensure you have a stable internet connection.
-						</p>
-					</div>
-				{:else if !isModelLoaded && !isWasmLoading && isWasmReady}
-					<div class="flex h-full flex-col items-center justify-center p-8 text-center">
-						<div
-							class="loader mb-4 h-12 w-12 animate-spin rounded-full border-4 border-purple-500 border-t-transparent"
-						></div>
-						<p class="text-xl font-semibold text-slate-100">Loading Whisper Model...</p>
-						<p class="text-slate-400">
-							The model (for {languageOptionsConstant.find(
-								(l) => l.value === selectedGlobalLanguage
-							)?.label || 'selected language'}) is being downloaded and initialized. This can take
-							some time.
-						</p>
-					</div>
-				{/if}
-
-				<PracticeDisplay
+				<PracticeModeView
 					{whisperModule}
 					{whisperContextId}
 					{isModelLoaded}
 					numThreadsForTranscription={initialNumThreads}
 					languageForTranscription={selectedGlobalLanguage}
-					on:log={handleLogFromChild}
+					onLog={handleLogFromChild}
+					onPracticeEnd={resetPractice}
+					{isWasmLoading}
+					{isWasmReady}
 				/>
-				<div class="mt-8 flex justify-center">
-					<Button
-						onclick={resetPractice}
-						class="bg-violet-500 py-3 text-lg text-slate-100 hover:bg-violet-400"
-						size="lg"
-					>
-						End Practice / New Passage
-					</Button>
-				</div>
 			{/if}
 
 			{#if showDebugInfo}
-				<div
-					class="mx-auto mt-10 w-full max-w-3xl space-y-6 border-t-2 border-dashed border-slate-700 pt-6"
-				>
-					<h3 class="text-center text-lg font-semibold text-slate-400">
-						Whisper Engine & Model Controls (Debug)
-					</h3>
-					<ModelLoader
-						{whisperModule}
-						{isWasmReady}
-						{isWasmLoading}
-						preferredLanguage={selectedGlobalLanguage}
-						initialModelStatus={appModelStatus}
-						on:log={handleLogFromChild}
-						on:notify={(e) => toast[e.detail.type](e.detail.message)}
-						on:modelInitialized={handleModelInitialized}
-						on:modelUnloaded={handleModelUnloaded}
-						on:statusUpdate={handleModelStatusUpdate}
-					/>
-					<LogViewer {logOutput} />
-				</div>
+				<DebugSection
+					{whisperModule}
+					{isWasmReady}
+					{isWasmLoading}
+					preferredLanguage={selectedGlobalLanguage}
+					initialModelStatus={appModelStatus}
+					onLog={handleLogFromChild}
+					onNotify={handleToastNotify}
+					onModelInitialized={handleModelInitialized}
+					onModelUnloaded={handleModelUnloaded}
+					onModelStatusUpdate={handleModelStatusUpdate}
+					{logOutput}
+				/>
 			{/if}
 		</main>
 	</div>
 
-	<footer
-		class="h-20 border-t border-slate-700 bg-slate-800/80 p-4 text-center text-xs text-slate-400"
-	>
-		<p>&copy; {new Date().getFullYear()} FluentThroughSpeech. Powered by Svelte & Whisper.cpp.</p>
-		<p class="mt-1">
-			For best results, use a modern browser. Ensure microphone permissions are granted.
-		</p>
-		<p class="mt-1">(Future: Privacy Policy | About | Leaderboard)</p>
-	</footer>
+	<AppFooter />
 </div>
-
-<style>
-	.loader {
-		border-style: solid;
-	}
-</style>
+	

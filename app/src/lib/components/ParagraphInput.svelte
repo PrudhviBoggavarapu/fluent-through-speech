@@ -6,7 +6,12 @@
 	import practiceStore, { startPractice } from '$lib/stores/practiceStore';
 	import { createEventDispatcher } from 'svelte';
 
-	let { initialParagraph = 'Error: Story content not loaded.' }: { initialParagraph?: string } =
+	type $$Props = {
+		initialParagraph?: string;
+		disabled?: boolean;
+	};
+
+	let { initialParagraph = 'Error: Story content not loaded.', disabled = false }: $$Props =
 		$props();
 
 	let paragraph = $state(initialParagraph);
@@ -16,16 +21,8 @@
 	}>();
 
 	$effect(() => {
-		// console.log(
-		// 	'[ParagraphInput $effect] Triggered. Practice Mode:', $practiceStore.isPracticeMode,
-		// 	'Prop initialParagraph:', initialParagraph?.substring(0,30) + "...",
-		// 	'Internal paragraph:', paragraph?.substring(0,30) + "..."
-		// );
 		if (!$practiceStore.isPracticeMode) {
 			if (paragraph !== initialParagraph) {
-				// console.log(
-				// 	`[ParagraphInput $effect] Updating internal paragraph to: "${initialParagraph?.substring(0,30)}..."`
-				// );
 				paragraph = initialParagraph;
 			}
 		}
@@ -49,12 +46,12 @@
 		placeholder="Select a story or paste your paragraph here..."
 		rows={8}
 		class="resize-y border-slate-600 bg-slate-700 text-base text-slate-100 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-slate-900"
-		disabled={$practiceStore.isPracticeMode}
+		disabled={$practiceStore.isPracticeMode || disabled}
 	/>
 	<Button
 		onclick={handleStartPractice}
 		class="mt-4 w-full bg-purple-500 py-3 text-lg text-slate-100 hover:bg-purple-400 active:bg-purple-600 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
-		disabled={$practiceStore.isPracticeMode || !paragraph || !paragraph.trim()}
+		disabled={$practiceStore.isPracticeMode || !paragraph || !paragraph.trim() || disabled}
 		size="lg"
 	>
 		Start Practice
