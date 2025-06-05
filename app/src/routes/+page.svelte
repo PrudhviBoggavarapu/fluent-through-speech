@@ -277,12 +277,14 @@
 		CardTitle,
 		CardDescription
 	} from '$lib/components/ui/card';
+	import { ScrollArea } from '$lib/components/ui/scroll-area';
 
 	import MenuIcon from '@lucide/svelte/icons/menu';
 	import UserCircleIcon from '@lucide/svelte/icons/user-circle-2';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import BookOpenTextIcon from '@lucide/svelte/icons/book-open-text';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import BugIcon from '@lucide/svelte/icons/bug';
 	import { languages as languageOptionsConstant } from '$lib/constants';
 	import { labelClasses, selectClasses as regularSelectClasses } from '$lib/uiClasses';
 
@@ -293,7 +295,7 @@
 
 	let selectedStoryId = $state<string>(initialId);
 	let selectedGlobalLanguage = $state<string>('en');
-	let toggle_for_debug = false;
+	let showDebugInfo = $state(false);
 
 	let selectedStory: Story = $derived.by(() => {
 		const found = availableStories.find((s) => s.id === selectedStoryId);
@@ -470,6 +472,10 @@
 		16,
 		Math.max(1, Math.floor((navigator.hardwareConcurrency || 4) / 2))
 	);
+
+	function toggleDebugInfo() {
+		showDebugInfo = !showDebugInfo;
+	}
 </script>
 
 <svelte:head>
@@ -482,9 +488,9 @@
 
 <Toaster richColors position="top-right" />
 
-<div class="flex min-h-screen flex-col bg-slate-900 text-slate-100">
+<div class="flex h-screen flex-col bg-slate-900 text-slate-100">
 	<nav
-		class="sticky top-0 z-50 flex items-center justify-between bg-slate-800/80 p-3 px-4 shadow-md backdrop-blur-md md:px-6"
+		class="sticky top-0 z-50 flex h-16 items-center justify-between bg-slate-800/80 p-3 px-4 shadow-md backdrop-blur-md md:px-6"
 	>
 		<div class="flex items-center gap-2">
 			<Button
@@ -515,17 +521,33 @@
 			>
 				<SettingsIcon class="h-6 w-6" />
 			</Button>
+			<Button
+				variant="ghost"
+				size="icon"
+				title={showDebugInfo ? 'Hide Debug Info' : 'Show Debug Info'}
+				class="text-slate-300 hover:bg-slate-700 hover:text-slate-100 {showDebugInfo
+					? '!bg-purple-500/20 text-purple-400'
+					: ''}"
+				onclick={toggleDebugInfo}
+			>
+				<BugIcon class="h-6 w-6" />
+			</Button>
 		</div>
 	</nav>
 
-	<div class="flex flex-1">
+	<div class="flex flex-1 overflow-hidden">
 		{#if showSidebar}
-			<aside
-				class="fixed inset-y-0 left-0 z-40 w-64 transform border-r border-slate-700 bg-slate-800/90 text-slate-300 shadow-lg transition-transform duration-300 ease-in-out md:static md:translate-x-0 {showSidebar
-					? 'translate-x-0 pt-16 md:pt-0'
-					: '-translate-x-full pt-16 md:pt-0'}"
+			<ScrollArea
+				class="fixed inset-y-0 left-0 z-40 w-64 transform 
+					   border-r border-slate-700 bg-slate-800/90 text-slate-300 shadow-lg transition-transform duration-300 ease-in-out 
+					   md:static md:h-[calc(100vh-4rem-3rem)] md:shrink-0 md:transform-none md:transition-none 
+					   {showSidebar ? 'translate-x-0' : '-translate-x-full'}"
 			>
-				<div class="h-full overflow-y-auto p-4">
+				<div
+					class="h-full p-4 {showSidebar && typeof window !== 'undefined' && window.innerWidth < 768
+						? 'pt-16' // For fixed mobile view, pad below nav
+						: 'md:pt-4'}"
+				>
 					<h2 class="mb-4 text-lg font-semibold tracking-tight text-slate-100">
 						Choose Your Passage
 					</h2>
@@ -561,10 +583,10 @@
 						</p>
 					</div>
 				</div>
-			</aside>
+			</ScrollArea>
 		{/if}
 
-		<main class="flex-1 overflow-y-auto p-4 pt-6 md:p-8">
+		<main class="flex-1 overflow-y-auto px-4 pt-16 pb-6 md:h-full">
 			{#if !$practiceStore.isPracticeMode}
 				<Card class="mx-auto w-full max-w-3xl bg-slate-800 text-slate-100 shadow-xl">
 					<CardHeader>
@@ -662,8 +684,13 @@
 				</div>
 			{/if}
 
-			{#if $practiceStore.isPracticeMode || false}
-				<div class="mx-auto mt-10 w-full max-w-3xl space-y-6">
+			{#if showDebugInfo}
+				<div
+					class="mx-auto mt-10 w-full max-w-3xl space-y-6 border-t-2 border-dashed border-slate-700 pt-6"
+				>
+					<h3 class="text-center text-lg font-semibold text-slate-400">
+						Whisper Engine & Model Controls (Debug)
+					</h3>
 					<ModelLoader
 						{whisperModule}
 						{isWasmReady}
@@ -682,7 +709,9 @@
 		</main>
 	</div>
 
-	<footer class="border-t border-slate-700 bg-slate-800/80 p-4 text-center text-xs text-slate-400">
+	<footer
+		class="h-20 border-t border-slate-700 bg-slate-800/80 p-4 text-center text-xs text-slate-400"
+	>
 		<p>&copy; {new Date().getFullYear()} FluentThroughSpeech. Powered by Svelte & Whisper.cpp.</p>
 		<p class="mt-1">
 			For best results, use a modern browser. Ensure microphone permissions are granted.
@@ -694,24 +723,5 @@
 <style>
 	.loader {
 		border-style: solid;
-	}
-	@media (max-width: 767px) {
-		aside.fixed {
-			padding-top: 4rem; /* Approx height of nav */
-		}
-	}
-	aside ::-webkit-scrollbar {
-		width: 8px;
-	}
-	aside ::-webkit-scrollbar-track {
-		background-color: #334155; /* slate-700 */
-		border-radius: 10px;
-	}
-	aside ::-webkit-scrollbar-thumb {
-		background-color: #a855f7; /* purple-500 */
-		border-radius: 10px;
-	}
-	aside ::-webkit-scrollbar-thumb:hover {
-		background-color: #c084fc; /* purple-400 */
 	}
 </style>

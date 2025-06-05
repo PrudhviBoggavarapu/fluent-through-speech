@@ -79,8 +79,8 @@ importers:
         specifier: ^4.0.0
         version: 4.1.7(vite@6.3.5(@types/node@22.15.23)(jiti@2.4.2)(lightningcss@1.30.1))
       bits-ui:
-        specifier: ^2.1.0
-        version: 2.1.0(@internationalized/date@3.8.1)(svelte@5.33.3)
+        specifier: ^2.4.1
+        version: 2.4.1(@internationalized/date@3.8.1)(svelte@5.33.3)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -942,8 +942,8 @@ packages:
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
 
-  bits-ui@2.1.0:
-    resolution: {integrity: sha512-hDYT8NCzKbqPhm7E6af5ZfSOPV6JZ5F/a2X1I5x0Jxn11y4Ts7ufw8sdVE0rNpF+cyLnx/96+048jAY37FepOw==}
+  bits-ui@2.4.1:
+    resolution: {integrity: sha512-Z0qZkPgtxP5dkEOyZqCK2PQ1oFXsD0AlfFMtsrMLJqaYtjUBoQGosHVKEH03M9q4G8kxVnG74Zb0F9pS0X4+6w==}
     engines: {node: '>=20', pnpm: '>=8.7.0'}
     peerDependencies:
       '@internationalized/date': ^3.8.1
@@ -1990,8 +1990,8 @@ packages:
     peerDependencies:
       svelte: ^5.0.0
 
-  svelte-toolbelt@0.8.2:
-    resolution: {integrity: sha512-qoQYJYkLlz/31EcpbZFk+2vp4qKJn9aM7iO2JvBnzaJD/fTmMtbrP9gwzgnvn/Y8miJFCnsF6CZ5zsHC2d/p/A==}
+  svelte-toolbelt@0.9.1:
+    resolution: {integrity: sha512-wBX6MtYw/kpht80j5zLpxJyR9soLizXPIAIWEVd9llAi17SR44ZdG291bldjB7r/K5duC0opDFcuhk2cA1hb8g==}
     engines: {node: '>=18', pnpm: '>=8.7.0'}
     peerDependencies:
       svelte: ^5.30.2
@@ -2953,7 +2953,7 @@ snapshots:
 
   base64-js@1.5.1: {}
 
-  bits-ui@2.1.0(@internationalized/date@3.8.1)(svelte@5.33.3):
+  bits-ui@2.4.1(@internationalized/date@3.8.1)(svelte@5.33.3):
     dependencies:
       '@floating-ui/core': 1.7.0
       '@floating-ui/dom': 1.7.0
@@ -2962,7 +2962,7 @@ snapshots:
       esm-env: 1.2.2
       runed: 0.28.0(svelte@5.33.3)
       svelte: 5.33.3
-      svelte-toolbelt: 0.8.2(svelte@5.33.3)
+      svelte-toolbelt: 0.9.1(svelte@5.33.3)
       tabbable: 6.2.0
 
   bl@4.1.0:
@@ -3983,7 +3983,7 @@ snapshots:
       style-to-object: 1.0.8
       svelte: 5.33.3
 
-  svelte-toolbelt@0.8.2(svelte@5.33.3):
+  svelte-toolbelt@0.9.1(svelte@5.33.3):
     dependencies:
       clsx: 2.1.1
       runed: 0.28.0(svelte@5.33.3)
