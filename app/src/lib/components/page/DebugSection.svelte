@@ -16,6 +16,7 @@
 		onModelUnloaded: () => void;
 		onModelStatusUpdate: (event: CustomEvent<string>) => void;
 		logOutput: string;
+		class?: string; // Added class prop
 	};
 
 	let {
@@ -29,12 +30,13 @@
 		onModelInitialized,
 		onModelUnloaded,
 		onModelStatusUpdate,
-		logOutput
+		logOutput,
+		class: className // Destructured class prop
 	}: $$Props = $props();
 </script>
 
 <div
-	class="mx-auto mt-10 w-full max-w-3xl space-y-6 border-t-2 border-dashed border-slate-700 pt-6"
+	class="mx-auto mt-10 w-full max-w-3xl space-y-6 border-t-2 border-dashed border-slate-700 pt-6 {className}"
 >
 	<h3 class="text-center text-lg font-semibold text-slate-400">
 		Whisper Engine & Model Controls (Debug)

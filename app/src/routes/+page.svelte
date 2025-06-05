@@ -511,24 +511,22 @@
 				/>
 			{/if}
 
-			{#if showDebugInfo}
-				<DebugSection
-					{whisperModule}
-					{isWasmReady}
-					{isWasmLoading}
-					preferredLanguage={selectedGlobalLanguage}
-					initialModelStatus={appModelStatus}
-					onLog={handleLogFromChild}
-					onNotify={handleToastNotify}
-					onModelInitialized={handleModelInitialized}
-					onModelUnloaded={handleModelUnloaded}
-					onModelStatusUpdate={handleModelStatusUpdate}
-					{logOutput}
-				/>
-			{/if}
+			<DebugSection
+				class={showDebugInfo ? '' : 'hidden'}
+				{whisperModule}
+				{isWasmReady}
+				{isWasmLoading}
+				preferredLanguage={selectedGlobalLanguage}
+				initialModelStatus={appModelStatus}
+				onLog={handleLogFromChild}
+				onNotify={handleToastNotify}
+				onModelInitialized={handleModelInitialized}
+				onModelUnloaded={handleModelUnloaded}
+				onModelStatusUpdate={handleModelStatusUpdate}
+				{logOutput}
+			/>
 		</main>
 	</div>
 
 	<AppFooter />
 </div>
-	

@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import FullParagraphDisplay from '$lib/components/FullParagraphDisplay.svelte';
 	import PracticeDisplay from '$lib/components/PracticeDisplay.svelte';
-	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
 	type $$Props = {
 		whisperModule: any;
