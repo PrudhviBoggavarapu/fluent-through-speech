@@ -19,7 +19,7 @@
 		whisperContextId,
 		isModelLoaded,
 		numThreadsForTranscription = 8,
-		languageForTranscription = 'en'
+		languageForTranscription = 'es'
 	}: {
 		whisperModule: any;
 		whisperContextId: number | null;
@@ -246,21 +246,17 @@
 		if (similarity >= 95) {
 			overallMatchStatusMessage = `Perfect Match! (${similarity.toFixed(0)}%) 🎉`;
 			matchStatusColor = 'text-emerald-400';
-			toast.success(`Perfect Match! (${similarity.toFixed(0)}%)`);
 			shouldAutoAdvance = true;
 		} else if (similarity >= 75) {
 			overallMatchStatusMessage = `Good Match! (${similarity.toFixed(0)}%) 👍`;
 			matchStatusColor = 'text-emerald-400'; // Still positive
-			toast.info(`Good Match! (${similarity.toFixed(0)}%)`);
 			shouldAutoAdvance = true;
 		} else if (similarity >= 50) {
 			overallMatchStatusMessage = `Partial Match. (${similarity.toFixed(0)}%) Keep trying!`;
 			matchStatusColor = 'text-amber-400'; // Lighter for dark bg
-			toast.warning(`Partial Match. (${similarity.toFixed(0)}%)`);
 		} else {
 			overallMatchStatusMessage = `Needs Improvement. (${similarity.toFixed(0)}%) Try again. 🙁`;
 			matchStatusColor = 'text-rose-400';
-			toast.error(`Needs Improvement. (${similarity.toFixed(0)}%)`);
 		}
 
 		if (shouldAutoAdvance) {
@@ -287,7 +283,6 @@
 <div class="flex w-full max-w-2xl flex-col items-center text-slate-100">
 	<h1 class="mb-4 text-center text-3xl font-bold text-slate-100">Practice Mode</h1>
 	{#if $practiceStore.sentences.length > 0 && $practiceStore.currentSentenceIndex >= 0}
-		<!-- FullParagraphDisplay likely inherits text colors, or can be styled internally if needed -->
 		<FullParagraphDisplay />
 	{/if}
 

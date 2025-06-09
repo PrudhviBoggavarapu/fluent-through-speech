@@ -8,7 +8,7 @@
 	} from '$lib/components/ui/card';
 	import ParagraphInput from '$lib/components/ParagraphInput.svelte';
 	import { labelClasses, selectClasses as regularSelectClasses } from '$lib/uiClasses';
-	import type { Story } from '../../../routes/+page.svelte';
+	import type { Story } from '$lib/constants';
 
 	type $$Props = {
 		story: Story;
@@ -20,7 +20,7 @@
 
 	let {
 		story,
-		selectedLanguage = $bindable('en'),
+		selectedLanguage = $bindable('es'),
 		languageOptions,
 		onPracticeStart,
 		isWhisperBusy = false
@@ -71,9 +71,7 @@
 			</div>
 		{/if}
 		<div class="mt-8 rounded-lg border border-dashed border-slate-700 p-4 text-center">
-			<p class="text-slate-400">
-				✨ Tip: Speak clearly and at a natural pace. (More tips coming soon!) ✨
-			</p>
+			<p class="text-slate-400">✨ Tip: Speak clearly and at a natural pace. ✨</p>
 		</div>
 	</CardContent>
 </Card>

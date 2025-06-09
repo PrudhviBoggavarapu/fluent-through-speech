@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import FullParagraphDisplay from '$lib/components/FullParagraphDisplay.svelte';
 	import PracticeDisplay from '$lib/components/PracticeDisplay.svelte';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
 	type $$Props = {
 		whisperModule: any;
@@ -50,22 +52,24 @@
 	</div>
 {/if}
 
-<PracticeDisplay
-	{whisperModule}
-	{whisperContextId}
-	{isModelLoaded}
-	{numThreadsForTranscription}
-	{languageForTranscription}
-	on:log={onLog}
-/>
-<div class="mt-8 flex justify-center">
-	<Button
-		onclick={onPracticeEnd}
-		class="bg-violet-500 py-3 text-lg text-slate-100 hover:bg-violet-400"
-		size="lg"
-	>
-		End Practice / New Passage
-	</Button>
+<div class="flex flex-col items-center">
+	<PracticeDisplay
+		{whisperModule}
+		{whisperContextId}
+		{isModelLoaded}
+		{numThreadsForTranscription}
+		{languageForTranscription}
+		on:log={onLog}
+	/>
+	<div class="mt-6">
+		<Button
+			onclick={onPracticeEnd}
+			class="bg-violet-500 py-3 text-lg text-slate-100 hover:bg-violet-400"
+			size="lg"
+		>
+			End Practice / New Passage
+		</Button>
+	</div>
 </div>
 
 <style>
