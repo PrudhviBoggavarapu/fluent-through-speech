@@ -1,26 +1,24 @@
-<!-- src/lib/components/PracticeDisplay.svelte -->
 <script lang="ts">
-	import practiceStore, {
-		advanceToNextPracticeItem,
-		type CurrentPracticeDisplayItem
-	} from '$lib/stores/practiceStore';
-	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import FullParagraphDisplay from '$lib/components/FullParagraphDisplay.svelte';
 	import AudioRecorder from '$lib/components/AudioRecorder.svelte';
-	import { createEventDispatcher, onDestroy, type SvelteComponent } from 'svelte';
+	import { createEventDispatcher, onDestroy } from 'svelte';
 	import { kSampleRate, kMaxRecording_s } from '$lib/constants';
 	import { toast } from 'svelte-sonner';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { calculateSimilarity } from '$lib/utils/stringUtils';
 
 	let {
+		sentences,
+		currentSentenceIndex,
 		whisperModule,
 		whisperContextId,
 		isModelLoaded,
 		numThreadsForTranscription = 8,
 		languageForTranscription = 'es'
 	}: {
+		sentences: string[];
+		currentSentenceIndex: number;
 		whisperModule: any;
 		whisperContextId: number | null;
 		isModelLoaded: boolean;
@@ -30,30 +28,19 @@
 
 	let audioRecorderRef = $state<InstanceType<typeof AudioRecorder> | null>(null);
 
-	let currentItem = $derived<CurrentPracticeDisplayItem>(
-		$practiceStore.isPracticeMode &&
-			$practiceStore.sentences.length > 0 &&
-			$practiceStore.currentSentenceIndex >= 0 &&
-			$practiceStore.currentSentenceIndex < $practiceStore.sentences.length
-			? {
-					text: $practiceStore.sentences[$practiceStore.currentSentenceIndex],
-					type: 'sentence',
-					originalSentenceIndex: $practiceStore.currentSentenceIndex
-				}
-			: null
-	);
-
 	let displayItemText = $state('');
 	let displayTitleText = $state('');
 	let overallMatchStatusMessage = $state('');
-	let matchStatusColor = $state('text-slate-400'); // Default muted color
+	let matchStatusColor = $state('text-slate-400');
 	let isTranscribingOrComparing = $state(false);
 	let transcriptionPollInterval: any = null;
+	let lastTranscribedText = $state<string | null>(null);
 
-	const AUTO_ADVANCE_DELAY_MS = 1500;
+	const AUTO_ADVANCE_DELAY_MS = 3000;
 
 	const dispatch = createEventDispatcher<{
 		log: { text: string; type?: 'info' | 'error' | 'warn' };
+		advance: void;
 	}>();
 
 	function log(text: string, type: 'info' | 'error' | 'warn' = 'info') {
@@ -62,97 +49,38 @@
 	}
 
 	$effect(() => {
-		const isPractice = $practiceStore.isPracticeMode;
-		const currentSentenceIdx = $practiceStore.currentSentenceIndex;
-		const totalSentences = $practiceStore.sentences.length;
-
-		if (!isPractice || !currentItem) {
+		const totalSentences = sentences.length;
+		if (currentSentenceIndex < 0 || currentSentenceIndex >= totalSentences) {
 			displayTitleText = 'Practice Ended or No Item';
 			displayItemText = '';
-			if (!isPractice && totalSentences > 0) {
-				displayTitleText = 'Practice Complete!';
-			}
-			overallMatchStatusMessage = '';
-			matchStatusColor = 'text-slate-400';
-			isTranscribingOrComparing = false;
 			return;
 		}
 
-		const sentenceIdxHuman = currentItem.originalSentenceIndex + 1;
+		const sentenceIdxHuman = currentSentenceIndex + 1;
 		displayTitleText = `Practice Sentence ${sentenceIdxHuman}/${totalSentences}:`;
-		displayItemText = currentItem.text;
+		displayItemText = sentences[currentSentenceIndex];
 		overallMatchStatusMessage = 'Record your attempt below.';
-		matchStatusColor = 'text-blue-400'; // Info color for initial prompt
+		matchStatusColor = 'text-blue-400';
 		isTranscribingOrComparing = false;
+		lastTranscribedText = null;
 	});
 
-	function handleNextSentence() {
-		if (audioRecorderRef?.isRecording()) audioRecorderRef.stop();
-		isTranscribingOrComparing = false;
-		if (transcriptionPollInterval) clearInterval(transcriptionPollInterval);
-		transcriptionPollInterval = null;
-		advanceToNextPracticeItem();
-	}
-
-	function handleAudioRecorderStatus(
-		event: CustomEvent<{
-			message: string;
-			type: 'recording' | 'processing' | 'error' | 'info' | 'idle';
-		}>
-	) {
-		overallMatchStatusMessage = event.detail.message;
-		if (event.detail.type === 'recording') matchStatusColor = 'text-blue-400';
-		else if (event.detail.type === 'processing') matchStatusColor = 'text-blue-400';
-		else if (event.detail.type === 'error') matchStatusColor = 'text-rose-400';
-		else matchStatusColor = 'text-slate-400';
-
-		if (event.detail.type === 'idle' || event.detail.type === 'error') {
-			isTranscribingOrComparing = false;
-		}
-	}
-
-	function handleAudioRecorderError(event: CustomEvent<{ message: string; details?: any }>) {
-		log(`AudioRecorder error: ${event.detail.message}`, 'error');
-		overallMatchStatusMessage = event.detail.message;
-		matchStatusColor = 'text-rose-400';
-		isTranscribingOrComparing = false;
-	}
-
-	function handleAudioRecorderLog(
-		event: CustomEvent<{ text: string; type?: 'info' | 'error' | 'warn' }>
-	) {
-		dispatch('log', event.detail);
-	}
-
-	async function handleAudioProcessed(event: CustomEvent<{ pcmf32: Float32Array }>) {
+	function handleAudioProcessed(event: CustomEvent<{ pcmf32: Float32Array }>) {
 		const audioPCM32 = event.detail.pcmf32;
-		log('Audio processed by AudioRecorder, proceeding to transcription.', 'info');
 		isTranscribingOrComparing = true;
 		overallMatchStatusMessage = 'Transcribing...';
 		matchStatusColor = 'text-blue-400';
-		await transcribeAndCompare(audioPCM32);
+		lastTranscribedText = null;
+		transcribeAndCompare(audioPCM32);
 	}
 
 	async function transcribeAndCompare(audioPCM32: Float32Array) {
 		if (!isModelLoaded || !whisperContextId || !whisperModule) {
-			log('Whisper model/context not ready for transcription.', 'error');
 			toast.error('Whisper not ready.');
-			overallMatchStatusMessage = 'Transcription service not ready.';
-			matchStatusColor = 'text-rose-400';
 			isTranscribingOrComparing = false;
 			return;
 		}
 
-		if (!audioPCM32 || audioPCM32.length === 0) {
-			log('CRITICAL: audioPCM32 is null or empty before transcription!', 'error');
-			toast.error('Internal error: No audio data to transcribe.');
-			overallMatchStatusMessage = 'Error: No audio data.';
-			matchStatusColor = 'text-rose-400';
-			isTranscribingOrComparing = false;
-			return;
-		}
-
-		log(`Calling whisperModule.full_default...`);
 		try {
 			if (transcriptionPollInterval) clearInterval(transcriptionPollInterval);
 
@@ -166,47 +94,15 @@
 			if (ret !== 0) throw new Error(`Whisper C API returned error code: ${ret}`);
 
 			transcriptionPollInterval = setInterval(() => {
-				if (!whisperModule) {
-					log('WASM Module became unavailable during polling.', 'error');
+				if (whisperModule.is_transcription_done(whisperContextId)) {
 					clearInterval(transcriptionPollInterval);
-					transcriptionPollInterval = null;
-					isTranscribingOrComparing = false;
-					overallMatchStatusMessage = 'Transcription failed (module lost).';
-					matchStatusColor = 'text-rose-400';
-					return;
-				}
-				try {
-					if (whisperModule.is_transcription_done(whisperContextId)) {
-						clearInterval(transcriptionPollInterval);
-						transcriptionPollInterval = null;
-						const transcribedText = whisperModule.get_transcription_result(whisperContextId);
-						log(`Transcription result: "${transcribedText}"`, 'info');
-						compareTranscriptionWithLevenshtein(transcribedText);
-					} else {
-						// log('Polling: Transcription not done yet...', 'info');
-						overallMatchStatusMessage = 'Transcribing (polling)...';
-						matchStatusColor = 'text-blue-400';
-					}
-				} catch (pollError: any) {
-					log(`Error during transcription polling: ${pollError.message}`, 'error');
-					clearInterval(transcriptionPollInterval);
-					transcriptionPollInterval = null;
-					toast.error(`Transcription polling error: ${pollError.message}`);
-					overallMatchStatusMessage = 'Transcription polling error.';
-					matchStatusColor = 'text-rose-400';
-					isTranscribingOrComparing = false;
+					const transcribedText = whisperModule.get_transcription_result(whisperContextId);
+					compareTranscriptionWithLevenshtein(transcribedText);
 				}
 			}, 500);
 		} catch (e: any) {
-			log(`Error calling/during whisperModule.full_default: ${e.message}`, 'error');
 			toast.error(`Transcription error: ${e.message}`);
-			overallMatchStatusMessage = `Transcription error: ${e.message.split('(')[0]}`;
-			matchStatusColor = 'text-rose-400';
 			isTranscribingOrComparing = false;
-			if (transcriptionPollInterval) {
-				clearInterval(transcriptionPollInterval);
-				transcriptionPollInterval = null;
-			}
 		}
 	}
 
@@ -219,20 +115,11 @@
 	}
 
 	function compareTranscriptionWithLevenshtein(transcribedText: string) {
+		lastTranscribedText = transcribedText;
 		const originalNormalized = normalizeText(displayItemText);
 		const transcribedNormalized = normalizeText(transcribedText);
 
-		if (!transcribedNormalized && !originalNormalized) {
-			overallMatchStatusMessage = 'Perfect Match! (Both empty) 🎉';
-			matchStatusColor = 'text-emerald-400'; // Lighter for dark bg
-			toast.success('Perfect Match! (Both empty)');
-			setTimeout(() => {
-				if ($practiceStore.isPracticeMode) advanceToNextPracticeItem();
-				isTranscribingOrComparing = false;
-			}, AUTO_ADVANCE_DELAY_MS);
-			return;
-		}
-		if (!transcribedNormalized && originalNormalized) {
+		if (!transcribedNormalized) {
 			overallMatchStatusMessage = 'No speech detected. Try again. 🙁';
 			matchStatusColor = 'text-rose-400';
 			toast.error('No speech detected.');
@@ -249,11 +136,11 @@
 			shouldAutoAdvance = true;
 		} else if (similarity >= 75) {
 			overallMatchStatusMessage = `Good Match! (${similarity.toFixed(0)}%) 👍`;
-			matchStatusColor = 'text-emerald-400'; // Still positive
+			matchStatusColor = 'text-emerald-400';
 			shouldAutoAdvance = true;
 		} else if (similarity >= 50) {
 			overallMatchStatusMessage = `Partial Match. (${similarity.toFixed(0)}%) Keep trying!`;
-			matchStatusColor = 'text-amber-400'; // Lighter for dark bg
+			matchStatusColor = 'text-amber-400';
 		} else {
 			overallMatchStatusMessage = `Needs Improvement. (${similarity.toFixed(0)}%) Try again. 🙁`;
 			matchStatusColor = 'text-rose-400';
@@ -261,7 +148,7 @@
 
 		if (shouldAutoAdvance) {
 			setTimeout(() => {
-				if ($practiceStore.isPracticeMode) advanceToNextPracticeItem();
+				dispatch('advance');
 				isTranscribingOrComparing = false;
 			}, AUTO_ADVANCE_DELAY_MS);
 		} else {
@@ -269,22 +156,13 @@
 		}
 	}
 
-	let isRecorderBusy = $derived(
-		audioRecorderRef ? audioRecorderRef.isRecording() || audioRecorderRef.isProcessing() : false
-	);
-	let isOverallBusy = $derived(isRecorderBusy || isTranscribingOrComparing);
-
 	onDestroy(() => {
-		log('PracticeDisplay onDestroy.', 'info');
 		if (transcriptionPollInterval) clearInterval(transcriptionPollInterval);
 	});
 </script>
 
-<div class="flex w-full max-w-2xl flex-col items-center text-slate-100">
-	<h1 class="mb-4 text-center text-3xl font-bold text-slate-100">Practice Mode</h1>
-	{#if $practiceStore.sentences.length > 0 && $practiceStore.currentSentenceIndex >= 0}
-		<FullParagraphDisplay />
-	{/if}
+<div class="flex w-full max-w-4xl flex-col items-center text-slate-100">
+	<FullParagraphDisplay {sentences} {currentSentenceIndex} />
 
 	<Card class="my-6 w-full bg-slate-800 p-4 text-slate-100 shadow-lg">
 		<CardHeader>
@@ -301,58 +179,38 @@
 		</CardContent>
 	</Card>
 
-	{#if $practiceStore.isPracticeMode && displayItemText && displayItemText !== '...'}
-		<div class="mt-4 flex items-start justify-center space-x-4">
-			<Button
-				onclick={handleNextSentence}
-				size="lg"
-				class="bg-violet-500 text-slate-100 hover:bg-purple-400 active:bg-purple-600 disabled:bg-slate-700 disabled:text-slate-400"
-				disabled={isOverallBusy}
-			>
-				Next Sentence
-			</Button>
-			<AudioRecorder
-				bind:this={audioRecorderRef}
-				maxRecordingSeconds={kMaxRecording_s}
-				targetSampleRate={kSampleRate}
-				disabled={!isModelLoaded || !whisperContextId || isTranscribingOrComparing}
-				on:processed={handleAudioProcessed}
-				on:status={handleAudioRecorderStatus}
-				on:log={handleAudioRecorderLog}
-				on:error={handleAudioRecorderError}
-			/>
+	{#if lastTranscribedText !== null && !isTranscribingOrComparing}
+		<div class="mb-6 w-full rounded-lg bg-slate-700/50 p-4">
+			<h3 class="text-sm font-semibold tracking-wider text-slate-400 uppercase">Whisper heard:</h3>
+			<p class="mt-2 text-2xl text-slate-300 italic">
+				{#if lastTranscribedText}
+					"{lastTranscribedText}"
+				{:else}
+					<span class="text-slate-400">(No speech detected)</span>
+				{/if}
+			</p>
 		</div>
-		{#if isTranscribingOrComparing && !isRecorderBusy}
-			<div class="mt-3 flex w-full max-w-xs flex-col items-center">
-				<LoaderCircleIcon class="h-6 w-6 animate-spin text-purple-400" />
-				<p class="mt-1 text-center text-sm {matchStatusColor}">
-					{overallMatchStatusMessage || 'Processing...'}
-				</p>
-			</div>
-		{/if}
-	{:else if $practiceStore.isPracticeMode && (!isModelLoaded || !whisperContextId)}
-		<p class="mt-4 text-center text-lg text-slate-400">
-			Waiting for Whisper model to load before enabling recording...
-		</p>
 	{/if}
 
-	{#if overallMatchStatusMessage && !isOverallBusy}
-		{@const recorderIsActuallyRecording = audioRecorderRef ? audioRecorderRef.isRecording() : false}
-		{@const recorderIsActuallyProcessing = audioRecorderRef
-			? audioRecorderRef.isProcessing()
-			: false}
-		{#if !recorderIsActuallyRecording && !recorderIsActuallyProcessing}
-			<p class="mt-4 text-center text-lg {matchStatusColor}">{overallMatchStatusMessage}</p>
-		{/if}
+	<div class="mt-4 flex items-start justify-center space-x-4">
+		<AudioRecorder
+			bind:this={audioRecorderRef}
+			maxRecordingSeconds={kMaxRecording_s}
+			targetSampleRate={kSampleRate}
+			disabled={!isModelLoaded || isTranscribingOrComparing}
+			on:processed={handleAudioProcessed}
+		/>
+	</div>
+	{#if isTranscribingOrComparing}
+		<div class="mt-3 flex w-full max-w-xs flex-col items-center">
+			<LoaderCircleIcon class="h-6 w-6 animate-spin text-purple-400" />
+			<p class="mt-1 text-center text-sm {matchStatusColor}">
+				{overallMatchStatusMessage || 'Processing...'}
+			</p>
+		</div>
 	{/if}
 
-	{#if $practiceStore.sentences.length > 0}
-		<p class="mt-4 text-sm text-slate-400">
-			{#if $practiceStore.isPracticeMode && currentItem}
-				Sentence {$practiceStore.currentSentenceIndex + 1}/{$practiceStore.sentences.length}
-			{:else if !$practiceStore.isPracticeMode && $practiceStore.sentences.length > 0}
-				Practice complete or ended.
-			{/if}
-		</p>
+	{#if overallMatchStatusMessage && !isTranscribingOrComparing}
+		<p class="mt-4 text-center text-lg {matchStatusColor}">{overallMatchStatusMessage}</p>
 	{/if}
 </div>

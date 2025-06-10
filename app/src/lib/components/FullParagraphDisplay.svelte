@@ -1,36 +1,34 @@
 <!-- src/lib/components/FullParagraphDisplay.svelte -->
 <script lang="ts">
-	import practiceStore from '$lib/stores/practiceStore';
-
-	// No need for $: here as $practiceStore is already reactive
-	// and its properties will be accessed reactively in the template.
+	let {
+		sentences,
+		currentSentenceIndex
+	}: {
+		sentences: string[];
+		currentSentenceIndex: number;
+	} = $props();
 </script>
 
 <div
 	class="max-h-40 overflow-y-auto rounded-lg bg-slate-800/50 p-4 text-sm leading-relaxed shadow-inner"
 >
-	<!-- 
-		Alternative background if you want it more opaque: 
-		class="max-h-40 overflow-y-auto rounded-lg bg-slate-700 p-4 text-sm leading-relaxed" 
-	-->
 	<h3 class="sr-only">Full Paragraph Context</h3>
-	{#each $practiceStore.sentences as sentence, i}
+	{#each sentences as sentence, i}
 		<span
-			class:font-bold={i === $practiceStore.currentSentenceIndex}
-			class:text-purple-200={i === $practiceStore.currentSentenceIndex}
-			class:bg-purple-500={i === $practiceStore.currentSentenceIndex && 'bg-opacity-30'}
-			class:rounded-sm={i === $practiceStore.currentSentenceIndex}
-			class:px-1={i === $practiceStore.currentSentenceIndex}
-			class:py-0.5={i === $practiceStore.currentSentenceIndex}
-			class:text-slate-400={i !== $practiceStore.currentSentenceIndex}
+			class:font-bold={i === currentSentenceIndex}
+			class:text-purple-200={i === currentSentenceIndex}
+			class:bg-purple-500={i === currentSentenceIndex && 'bg-opacity-30'}
+			class:rounded-sm={i === currentSentenceIndex}
+			class:px-1={i === currentSentenceIndex}
+			class:py-0.5={i === currentSentenceIndex}
+			class:text-slate-400={i !== currentSentenceIndex}
 		>
-			{sentence}{i < $practiceStore.sentences.length - 1 ? ' ' : ''}
+			{sentence}{i < sentences.length - 1 ? ' ' : ''}
 		</span>
 	{/each}
 </div>
 
 <style>
-	/* Custom scrollbar for this specific component if needed, similar to the sidebar */
 	div::-webkit-scrollbar {
 		width: 6px;
 	}
