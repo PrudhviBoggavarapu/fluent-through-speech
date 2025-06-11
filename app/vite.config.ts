@@ -1,10 +1,30 @@
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
+import { viteStaticCopy } from "vite-plugin-static-copy";
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit()],
-	server: {
+  plugins: [tailwindcss(), sveltekit(), viteStaticCopy({
+    targets: [
+      {
+        src: "node_modules/@ricky0123/vad-web/dist/vad.worklet.bundle.min.js",
+        dest: "/",
+      },
+      {
+        src: "node_modules/@ricky0123/vad-web/dist/*.onnx",
+        dest: "/",
+      },
+      {
+        src: "node_modules/onnxruntime-web/dist/*.wasm",
+        dest: "/",
+      },
+      {
+        src: "node_modules/.pnpm/onnxruntime-web@1.14.0/node_modules/onnxruntime-web/dist/ort-wasm-simd.wasm",
+        dest: "/",
+      },
+    ],
+  }),],
+  server: {
     // Add this section
     host: true, // This allows Vite to listen on all public IPs
     hmr: {
@@ -15,4 +35,5 @@ export default defineConfig({
     // And specifically allow your ngrok host
     allowedHosts: ["5878-74-193-213-147.ngrok-free.app"],
   },
+
 });

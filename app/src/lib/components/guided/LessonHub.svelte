@@ -4,8 +4,17 @@
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import type { Story } from '$lib/constants';
+	import { onMount } from 'svelte';
+	import { getAllCompletedLessonIds } from '$lib/services/db';
+	import CheckCircle2 from '@lucide/svelte/icons/check-circle-2';
 
 	let { lessons }: { lessons: readonly Story[] } = $props();
+
+	let completedLessonIds = $state(new Set<string>());
+
+	onMount(async () => {
+		completedLessonIds = await getAllCompletedLessonIds();
+	});
 </script>
 
 <!-- FIX: Changed to fill available space -->
@@ -33,6 +42,9 @@
 								{lesson.category} - {lesson.difficulty}
 							</p>
 						</div>
+						{#if completedLessonIds.has(lesson.id)}
+							<CheckCircle2 class="h-5 w-5 text-emerald-400" />
+						{/if}
 					</Button>
 				{/each}
 			</div>

@@ -4,10 +4,11 @@
 	import AudioRecorder from '$lib/components/AudioRecorder.svelte';
 	import { kSampleRate, kMaxRecording_s } from '$lib/constants';
 	import { toast } from 'svelte-sonner';
-	import { diffWords, type DiffResult } from '$lib/utils/diff';
+	import { diffWords, type DiffResult } from '$lib/stores/utils/diff';
 	import { Button } from '$lib/components/ui/button';
 	import type { Story } from '$lib/constants';
 	import { createEventDispatcher } from 'svelte';
+	import { addCompletedLesson } from '$lib/services/db';
 
 	let {
 		lesson,
@@ -76,6 +77,15 @@
 		accuracy = (correctWords / totalOriginalWords) * 100;
 		toast.success(`Recital complete! Accuracy: ${accuracy.toFixed(0)}%`);
 	}
+
+	async function handleFinishLesson() {
+		if (rawTranscribedText !== null) {
+			await addCompletedLesson(lesson.id, rawTranscribedText);
+		} else {
+			await addCompletedLesson(lesson.id, '[No recital text captured]');
+		}
+		lessonStore.finishLesson();
+	}
 </script>
 
 <div class="h-full w-full">
@@ -136,7 +146,7 @@
 					</div>
 					<div class="pt-4 text-center">
 						<Button
-							onclick={() => lessonStore.finishLesson()}
+							onclick={handleFinishLesson}
 							size="lg"
 							class="bg-purple-600 text-lg text-white hover:bg-purple-500"
 						>
@@ -148,3 +158,4 @@
 		</CardContent>
 	</Card>
 </div>
+

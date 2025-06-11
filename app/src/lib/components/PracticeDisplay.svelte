@@ -6,7 +6,7 @@
 	import { kSampleRate, kMaxRecording_s } from '$lib/constants';
 	import { toast } from 'svelte-sonner';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-	import { calculateSimilarity } from '$lib/utils/stringUtils';
+	import { calculateSimilarity } from '$lib/stores/utils/stringUtils';
 
 	let {
 		sentences,
