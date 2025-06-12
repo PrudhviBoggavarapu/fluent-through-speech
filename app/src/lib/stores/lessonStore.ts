@@ -1,6 +1,6 @@
 // src/lib/stores/lessonStore.ts
 import { writable } from 'svelte/store';
-import { splitParagraphIntoSentences } from '$lib/utils/sentenceSplitter';
+import { splitParagraphIntoSentences } from '$lib/stores/utils/sentenceSplitter';
 import type { Story } from '$lib/constants';
 import { stories } from '$lib/constants';
 

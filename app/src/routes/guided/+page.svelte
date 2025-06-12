@@ -194,11 +194,11 @@
 				{isWasmLoading}
 				preferredLanguage={$lessonStore.currentLesson?.lang ?? 'es'}
 				initialModelStatus={appModelStatus}
-				on:log={handleLogFromChild}
-				on:notify={handleToastNotify}
-				on:modelInitialized={handleModelInitialized}
-				on:modelUnloaded={handleModelUnloaded}
-				on:modelStatusUpdate={handleModelStatusUpdate}
+				onLog={handleLogFromChild}
+				onNotify={handleToastNotify}
+				onModelInitialized={handleModelInitialized}
+				onModelUnloaded={handleModelUnloaded}
+				onModelStatusUpdate={handleModelStatusUpdate}
 				{logOutput}
 			/>
 		</main>

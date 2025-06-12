@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import FullParagraphDisplay from '$lib/components/FullParagraphDisplay.svelte';
 	import PracticeDisplay from '$lib/components/PracticeDisplay.svelte';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+	import practiceStore from '$lib/stores/practiceStore';
 
 	type $$Props = {
 		whisperModule: any;
@@ -54,6 +54,8 @@
 
 <div class="flex flex-col items-center">
 	<PracticeDisplay
+		sentences={$practiceStore.sentences}
+		currentSentenceIndex={$practiceStore.currentSentenceIndex}
 		{whisperModule}
 		{whisperContextId}
 		{isModelLoaded}

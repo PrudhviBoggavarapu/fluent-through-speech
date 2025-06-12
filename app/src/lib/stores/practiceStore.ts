@@ -1,6 +1,6 @@
 // src/lib/stores/practiceStore.ts
 import { writable } from 'svelte/store';
-import { splitParagraphIntoSentences } from '$lib/utils/sentenceSplitter';
+import { splitParagraphIntoSentences } from '$lib/stores/utils/sentenceSplitter';
 
 // Simplified PracticeItem, only dealing with full sentences for now
 export interface PracticeItem {
@@ -22,7 +22,7 @@ const initialState: PracticeState = {
 	paragraphInput: '',
 	sentences: [],
 	currentSentenceIndex: -1,
-	isPracticeMode: false,
+	isPracticeMode: false
 };
 
 const practiceStore = writable<PracticeState>(initialState);
@@ -38,7 +38,7 @@ export const startPractice = (paragraph: string) => {
 	const rawSentences = splitParagraphIntoSentences(paragraph);
 	if (rawSentences.length === 0) {
 		console.warn('[Store] No sentences found.');
-		practiceStore.update(s => ({
+		practiceStore.update((s) => ({
 			...s,
 			paragraphInput: paragraph,
 			sentences: [],
@@ -52,7 +52,7 @@ export const startPractice = (paragraph: string) => {
 		paragraphInput: paragraph,
 		sentences: rawSentences,
 		currentSentenceIndex: 0,
-		isPracticeMode: true,
+		isPracticeMode: true
 	});
 	console.log('[Store] Practice started with sentences:', rawSentences);
 };

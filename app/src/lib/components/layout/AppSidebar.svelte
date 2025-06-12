@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import type { Story } from '../../../routes/+page.svelte';
+	import type { Story } from '$lib/constants';
 
 	type $$Props = {
 		stories: readonly Story[];

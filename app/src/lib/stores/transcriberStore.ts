@@ -1,7 +1,7 @@
 // src/lib/stores/transcriberStore.ts
 import { writable, get, type Writable } from 'svelte/store';
 import { workerMessages, postToWorker, workerError } from '$lib/workerService';
-import Constants from '$lib/utils/Constants'; // Ensure this path is correct
+import * as Constants from '$lib/constants'; // Ensure this path is correct
 
 export interface ProgressItem {
 	file: string;
@@ -24,11 +24,11 @@ export interface TranscriberData {
 }
 
 // --- State Stores ---
-export const model = writable<string>(Constants.DEFAULT_MODEL);
-export const subtask = writable<string>(Constants.DEFAULT_SUBTASK);
-export const quantized = writable<boolean>(Constants.DEFAULT_QUANTIZED);
-export const multilingual = writable<boolean>(Constants.DEFAULT_MULTILINGUAL);
-export const language = writable<string>(Constants.DEFAULT_LANGUAGE);
+export const model = writable<string>(Constants.DEFAULT_MODEL_NAME);
+export const subtask = writable<string>('transcribe');
+export const quantized = writable<boolean>(true);
+export const multilingual = writable<boolean>(true);
+export const language = writable<string>('es');
 
 export const transcriptOutput = writable<TranscriberData | undefined>(undefined);
 export const isTranscribing = writable(false); // Renamed from isBusy for clarity
@@ -105,19 +105,16 @@ workerMessages.subscribe((message) => {
 			break;
 		case 'initiate':
 			isModelLoading.set(true);
-			// Ensure message has file, name, and status for ProgressItem
 			if (message.file && message.name && message.status) {
-				progressItems.update((prev) => [
-					...prev,
-					{
-						file: message.file,
-						loaded: message.loaded || 0,
-						progress: message.progress || 0,
-						total: message.total || 0,
-						name: message.name,
-						status: message.status
-					}
-				]);
+				const newItem: ProgressItem = {
+					file: message.file,
+					loaded: message.loaded || 0,
+					progress: message.progress || 0,
+					total: message.total || 0,
+					name: message.name,
+					status: message.status
+				};
+				progressItems.update((prev) => [...prev, newItem]);
 			}
 			break;
 		case 'ready':
