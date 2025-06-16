@@ -5,7 +5,7 @@ export const kMaxRecording_s = 2 * 60; // Max recording duration
 export const MODEL_FILENAME_IN_FS = 'whisper.bin';
 
 // Default multilingual model
-export const DEFAULT_MODEL_PATH = '/ggml-tiny.bin';
+export const DEFAULT_MODEL_PATH = 'https://github.com/PrudhviBoggavarapu/fluent-through-speech/raw/refs/heads/main/app/static/ggml-tiny.bin';
 export const DEFAULT_MODEL_NAME = 'ggml-tiny.bin';
 
 // Default English-specific model
