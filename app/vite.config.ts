@@ -8,19 +8,19 @@ export default defineConfig({
     targets: [
       {
         src: "node_modules/@ricky0123/vad-web/dist/vad.worklet.bundle.min.js",
-        dest: "/",
+        dest: ".",
       },
       {
         src: "node_modules/@ricky0123/vad-web/dist/*.onnx",
-        dest: "/",
+        dest: ".",
       },
       {
         src: "node_modules/onnxruntime-web/dist/*.wasm",
-        dest: "/",
+        dest: ".",
       },
       {
         src: "node_modules/.pnpm/onnxruntime-web@1.14.0/node_modules/onnxruntime-web/dist/ort-wasm-simd.wasm",
-        dest: "/",
+        dest: ".",
       },
     ],
   }),],
