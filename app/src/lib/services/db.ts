@@ -60,3 +60,35 @@ export async function getAllCompletedLessonIds(): Promise<Set<string>> {
         return new Set();
     }
 }
+// This function fetches all chunks and combines them into a single ArrayBuffer.
+export async function loadAndReassembleFile(
+    chunkPaths: string[] // Now accepts an array of full paths
+): Promise<ArrayBuffer> {
+    const fetchPromises: Promise<ArrayBuffer>[] = [];
+
+    // Iterate directly over the provided array of paths
+    for (const url of chunkPaths) {
+        fetchPromises.push(
+            fetch(url).then((r) => {
+                if (!r.ok) throw new Error(`Failed to fetch chunk: ${url}`);
+                return r.arrayBuffer();
+            })
+        );
+    }
+
+    const allBuffers = await Promise.all(fetchPromises);
+
+    let totalSize = 0;
+    for (const buffer of allBuffers) {
+        totalSize += buffer.byteLength;
+    }
+
+    const combined = new Uint8Array(totalSize);
+    let offset = 0;
+    for (const buffer of allBuffers) {
+        combined.set(new Uint8Array(buffer), offset);
+        offset += buffer.byteLength;
+    }
+
+    return combined.buffer;
+}

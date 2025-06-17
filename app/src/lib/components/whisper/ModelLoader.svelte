@@ -8,6 +8,7 @@
 		// DEFAULT_MODEL_PATH_EN and DEFAULT_MODEL_NAME_EN are no longer used for auto-load decision
 	} from '$lib/constants';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+	import { loadAndReassembleFile } from '$lib/services/db';
 
 	let {
 		whisperModule,
@@ -80,26 +81,44 @@
 		isLoadingModel = true;
 		modelLoadProgress = 0;
 
-		const modelPathToLoad = DEFAULT_MODEL_PATH;
+		// Use DEFAULT_MODEL_NAME for display, even though we're loading chunks
 		const modelNameToLoad = DEFAULT_MODEL_NAME;
 		const modelLogName = `Default multilingual model (${DEFAULT_MODEL_NAME})`;
 
 		currentSelectedModelName = modelNameToLoad; // Update UI to show which model is being attempted
 
-		log(`Attempting to auto-load: ${modelLogName} from ${modelPathToLoad}`);
+		log(`Attempting to auto-load: ${modelLogName} via chunks.`);
 		dispatch('notify', { type: 'info', message: `Loading ${modelLogName}...` });
 
 		try {
-			const response = await fetch(modelPathToLoad);
-			if (!response.ok) {
-				throw new Error(`Failed to fetch ${modelPathToLoad}: ${response.statusText}`);
-			}
-			await processModelResponse(response, modelNameToLoad);
+			// Define the explicit list of chunk paths for your model
+			const CHUNK_PATHS = [
+				'/model/ggml-tiny.bin.part_aa',
+				'/model/ggml-tiny.bin.part_ab',
+				'/model/ggml-tiny.bin.part_ac',
+				'/model/ggml-tiny.bin.part_ad'
+			];
+
+			const modelData = await loadAndReassembleFile(CHUNK_PATHS);
+
+			log(`${currentSelectedModelName} reassembled from chunks. Storing in WASM FS...`);
+
+			const modelDataArray = new Uint8Array(modelData);
+
+			// Store the reassembled model in the WASM file system
+			try {
+				whisperModule.FS_unlink(MODEL_FILENAME_IN_FS);
+			} catch (e) {}
+			whisperModule.FS_createDataFile('/', MODEL_FILENAME_IN_FS, modelDataArray, true, true, true);
+			log(`${currentSelectedModelName} stored as ${MODEL_FILENAME_IN_FS} in WASM FS.`);
+
+			// Initialize the Whisper context with the reassembled model
+			initializeWhisperContext(modelNameToLoad);
 		} catch (error: any) {
-			log(`Error auto-loading ${modelLogName}: ${error.message}`, 'error');
+			log(`Error auto-loading model from chunks: ${error.message}`, 'error');
 			isLoadingModel = false;
 			currentSelectedModelName = ''; // Reset on failure
-			dispatch('notify', { type: 'error', message: `Failed to auto-load model: ${error.message}` });
+			dispatch('notify', { type: 'error', message: `Failed to load model: ${error.message}` });
 			internalModelStatus =
 				'Failed to load default model automatically. Please try a manual option.';
 		}
